@@ -256,7 +256,7 @@ class MultiPageRenderer(Renderer):
                              'shade-overview')
         shade.add_shade_from_wkt(shade_wkt)
 
-        if self.rc.osmid != None:
+        if self.rc.osmids != None:
             self.overview_canvas.add_shape_file(shade)
         self.overview_canvas.add_shape_file(grid_shape,
                                   self.rc.stylesheet.grid_line_color, 1,
@@ -342,7 +342,7 @@ class MultiPageRenderer(Renderer):
                 os.path.join(self.tmpdir, 'grid%d.shp' % i))
 
             map_canvas.add_shape_file(shade)
-            if self.rc.osmid != None:
+            if self.rc.osmids != None:
                 map_canvas.add_shape_file(shade_contour,
                                           self.rc.stylesheet.shade_color_2,
                                           self.rc.stylesheet.shade_alpha_2)

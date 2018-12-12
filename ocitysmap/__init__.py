@@ -88,6 +88,7 @@ import tempfile
 import shapely
 import shapely.wkt
 import shapely.geometry
+from shapely.ops import cascaded_union
 
 from . import coords
 from . import i18n
@@ -114,8 +115,8 @@ class RenderingConfiguration:
 
     def __init__(self):
         self.title           = None # str
-        self.osmid           = None # None / int (shading + city name)
-        self.bounding_box    = None # bbox (from osmid if None)
+        self.osmids          = None # None / int[] (shading + city name)
+        self.bounding_box    = None # bbox (from osmid(s) if None)
         self.language        = None # str (locale)
 
         self.stylesheet      = None # Obj Stylesheet
@@ -124,7 +125,7 @@ class RenderingConfiguration:
         self.paper_width_mm  = None
         self.paper_height_mm = None
 
-        # Setup by OCitySMap::render() from osmid and bounding_box fields:
+        # Setup by OCitySMap::render() from osmid(s) and bounding_box fields:
         self.polygon_wkt     = None # str (WKT of interest)
 
         # Setup by OCitySMap::render() from language field:
@@ -281,40 +282,44 @@ SELECT ST_AsText(ST_LongestLine(
         except ValueError:
             raise LookupError("OSM ID %d not found in table %s" %
                               (osmid, table))
-
         return shapely.wkt.loads(wkt)
 
-    def get_geographic_info(self, osmid):
+    def get_geographic_info(self, osmids):
         """Return a tuple (WKT_envelope, WKT_buildarea) or raise
         LookupError when not found
 
         Args:
-            osmid (integer): OSM ID
+            osmids (integer[]): OSM IDs
 
         Return:
             tuple (WKT bbox, WKT area)
         """
-        found = False
 
-        # Scan polygon table:
-        try:
-            polygon_geom = self._get_geographic_info(osmid, 'polygon')
-            found = True
-        except LookupError:
-            polygon_geom = shapely.geometry.Polygon()
+        results = []
+        for osmid in osmids:
+            found = False
 
-        # Scan line table:
-        try:
-            line_geom = self._get_geographic_info(osmid, 'line')
-            found = True
-        except LookupError:
-            line_geom = shapely.geometry.Polygon()
+            # Scan polygon table:
+            try:
+                polygon_geom = self._get_geographic_info(osmid, 'polygon')
+                found = True
+            except LookupError:
+                polygon_geom = shapely.geometry.Polygon()
 
-        # Merge results:
-        if not found:
-            raise LookupError("No such OSM id: %d" % osmid)
+            # Scan line table:
+            try:
+                line_geom = self._get_geographic_info(osmid, 'line')
+                found = True
+            except LookupError:
+                line_geom = shapely.geometry.Polygon()
 
-        result = polygon_geom.union(line_geom)
+            # Merge results:
+            if not found:
+                raise LookupError("No such OSM id: %d" % osmids)
+
+            results.append(polygon_geom.union(line_geom))
+
+        result = cascaded_union(results)
         return (result.envelope.wkt, result.wkt)
 
     def get_osm_database_last_update(self):
@@ -409,7 +414,7 @@ SELECT ST_AsText(ST_LongestLine(
             file_prefix (string): filename prefix for all output files.
         """
 
-        assert config.osmid or config.bounding_box, \
+        assert config.osmids or config.bounding_box, \
                 'At least an OSM ID or a bounding box must be provided!'
 
         output_formats = map(lambda x: x.lower(), output_formats)
@@ -424,9 +429,9 @@ SELECT ST_AsText(ST_LongestLine(
         LOG.debug("PGOPTIONS '%s'" % os.environ.get('PGOPTIONS', 'not set'))
 
         # Determine bounding box and WKT of interest
-        if config.osmid:
+        if config.osmids:
             osmid_bbox, osmid_area \
-                = self.get_geographic_info(config.osmid)
+                = self.get_geographic_info(config.osmids)
 
             # Define the bbox if not already defined
             if not config.bounding_box:
@@ -532,23 +537,6 @@ SELECT ST_AsText(ST_LongestLine(
 
         renderer.render(surface, dpi, osm_date)
 
-        if output_format == 'pdf':
-            surface.set_metadata(cairo.PDFMetadata.CREATOR,
-                                 'MyOSMatic <https://print.get-map.org/>')
-
-            surface.set_metadata(cairo.PDFMetadata.TITLE,
-                                 config.title)
-
-            surface.set_metadata(cairo.PDFMetadata.AUTHOR,
-                                 "Copyright © 2018 MapOSMatic/OCitySMap developers. \n" +
-                                 "Map data © 2018 OpenStreetMap contributors (see http://osm.org/copyright)")
-
-            surface.set_metadata(cairo.PDFMetadata.SUBJECT,
-                                 renderer.description) # TODO add style annotations here
-
-            surface.set_metadata(cairo.PDFMetadata.KEYWORDS,
-                                 "OpenStreetMap, MapOSMatic, OCitysMap")
-
         LOG.debug('Writing %s...' % output_filename)
         if output_format == 'png':
             surface.write_to_png(output_filename)
@@ -563,8 +551,8 @@ if __name__ == '__main__':
 
     c = RenderingConfiguration()
     c.title = 'Chevreuse, Yvelines, Île-de-France, France, Europe, Monde'
-    c.osmid = -943886 # Chevreuse
-    # c.osmid = -7444   # Paris
+    c.osmids = [ -943886 ] # Chevreuse
+    # c.osmids = [ -7444 ]   # Paris
     c.language = 'fr_FR.UTF-8'
     c.paper_width_mm = 297
     c.paper_height_mm = 420
