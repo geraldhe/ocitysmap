@@ -537,6 +537,19 @@ SELECT ST_AsText(ST_LongestLine(
 
         renderer.render(surface, dpi, osm_date)
 
+        if output_format == 'pdf':
+            surface.set_metadata(cairo.PDFMetadata.CREATOR,
+                                 'MyOSMatic <https://print.get-map.org/>')
+            surface.set_metadata(cairo.PDFMetadata.TITLE,
+                                 config.title)
+            surface.set_metadata(cairo.PDFMetadata.AUTHOR,
+                                 "Copyright © 2018 MapOSMatic/OCitySMap developers. \n" +
+                                 "Map data © 2018 OpenStreetMap contributors (see http://osm.org/copyright)")
+            surface.set_metadata(cairo.PDFMetadata.SUBJECT,
+                                 renderer.description) # TODO add style annotations here
+            surface.set_metadata(cairo.PDFMetadata.KEYWORDS,
+                                 "OpenStreetMap, MapOSMatic, OCitysMap")
+
         LOG.debug('Writing %s...' % output_filename)
         if output_format == 'png':
             surface.write_to_png(output_filename)
