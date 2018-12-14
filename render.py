@@ -247,7 +247,7 @@ def main():
     # Prepare the rendering config
     rc              = ocitysmap.RenderingConfiguration()
     rc.title        = options.output_title
-    rc.osmids        = osmids or None # Force to None if absent
+    rc.osmids       = osmids or None # Force to None if absent
     rc.bounding_box = bbox
     rc.language     = options.language
     rc.stylesheet   = stylesheet

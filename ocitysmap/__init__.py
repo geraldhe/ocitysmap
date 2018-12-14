@@ -127,6 +127,7 @@ class RenderingConfiguration:
 
         # Setup by OCitySMap::render() from osmid(s) and bounding_box fields:
         self.polygon_wkt     = None # str (WKT of interest)
+        self.name_to_polygon = None # dict(name -> polygon)
 
         # Setup by OCitySMap::render() from language field:
         self.i18n            = None # i18n object
@@ -270,19 +271,22 @@ SELECT ST_AsText(ST_LongestLine(
         cursor = self._db.cursor()
         cursor.execute("""select
                             st_astext(st_transform(st_buildarea(st_union(way)),
-                                                   4326))
+                                                   4326)), localized_name_first
                           from planet_osm_%s where osm_id = %d
-                          group by osm_id;""" %
+                          group by osm_id, localized_name_first;""" %
                        (table, osmid))
-        records = cursor.fetchall()
+        # records = cursor.fetchall()
+        records = cursor.fetchone()
         try:
-            ((wkt,),) = records
+            # ((wkt,),) = records
+            # LOG.debug("NAME OF AREA: " + records[1])
+            wkt = records[0]
             if wkt is None:
                 raise ValueError
         except ValueError:
             raise LookupError("OSM ID %d not found in table %s" %
                               (osmid, table))
-        return shapely.wkt.loads(wkt)
+        return (shapely.wkt.loads(wkt), records[1])
 
     def get_geographic_info(self, osmids):
         """Return a tuple (WKT_envelope, WKT_buildarea) or raise
@@ -296,19 +300,21 @@ SELECT ST_AsText(ST_LongestLine(
         """
 
         results = []
+        name_to_wkt = dict()
+        name = 'unknown'
         for osmid in osmids:
             found = False
 
             # Scan polygon table:
             try:
-                polygon_geom = self._get_geographic_info(osmid, 'polygon')
+                polygon_geom, name = self._get_geographic_info(osmid, 'polygon')
                 found = True
             except LookupError:
                 polygon_geom = shapely.geometry.Polygon()
 
             # Scan line table:
             try:
-                line_geom = self._get_geographic_info(osmid, 'line')
+                line_geom, name = self._get_geographic_info(osmid, 'line')
                 found = True
             except LookupError:
                 line_geom = shapely.geometry.Polygon()
@@ -317,10 +323,12 @@ SELECT ST_AsText(ST_LongestLine(
             if not found:
                 raise LookupError("No such OSM id: %d" % osmids)
 
-            results.append(polygon_geom.union(line_geom))
+            geom = polygon_geom.union(line_geom)
+            name_to_wkt[name] = geom;
+            results.append(geom)
 
         result = cascaded_union(results)
-        return (result.envelope.wkt, result.wkt)
+        return (result.envelope.wkt, result.wkt, name_to_wkt)
 
     def get_osm_database_last_update(self):
         cursor = self._db.cursor()
@@ -428,9 +436,9 @@ SELECT ST_AsText(ST_LongestLine(
         os.environ['PGOPTIONS'] = "-c mapnik.language=" + config.language[:2] + " -c mapnik.locality=" + config.language[:5] + " -c mapnik.country=" + config.language[3:5]
         LOG.debug("PGOPTIONS '%s'" % os.environ.get('PGOPTIONS', 'not set'))
 
-        # Determine bounding box and WKT of interest
+        # Determine bounding box, WKT of interest - and a dict(wkt_of_interest -> name)
         if config.osmids:
-            osmid_bbox, osmid_area \
+            osmid_bbox, osmid_area, config.name_to_polygon \
                 = self.get_geographic_info(config.osmids)
 
             # Define the bbox if not already defined

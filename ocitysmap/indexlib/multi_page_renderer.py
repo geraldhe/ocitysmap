@@ -84,6 +84,29 @@ class MultiPageStreetIndexRenderer:
         self.ctx.restore()
         self.surface.set_page_label('Index page %d' % (self.index_page_num))
 
+    def _draw_page_header(self, rtl, ctx, pc, layout, fascent, fheight,
+             baseline_x, baseline_y, text):
+        self.ctx.save()
+        self.ctx.set_source_rgb(0.9, 0.9, 0.9)
+        self.ctx.rectangle(baseline_x, baseline_y - fascent,
+                      self.rendering_area_w, fheight)
+        self.ctx.fill()
+
+        self.ctx.set_source_rgb(0.0, 0.0, 0.0)
+
+        # draw_utils.draw_text_center(ctx, pc, layout, fascent, fheight,
+        #                             baseline_x, baseline_y, text)
+        # print(layout.get_width())
+        # print("draw-city %d %d %d %d %s" % (fascent, fheight,
+        #                             baseline_x, baseline_y, text))
+        # self.ctx.restore()
+
+        #self.ctx.save()
+        #self.ctx.translate(Renderer.PRINT_SAFE_MARGIN_PT,
+        #                   Renderer.PRINT_SAFE_MARGIN_PT)
+        draw_utils.draw_simpletext_center(self.ctx, text, self.rendering_area_w / 2, baseline_y)
+        self.ctx.restore()
+
     def _new_page(self):
         self.surface.show_page()
         self.index_page_num = self.index_page_num + 1
@@ -95,9 +118,12 @@ class MultiPageStreetIndexRenderer:
         # Create a PangoCairo context for drawing to Cairo
         pc = PangoCairo.create_context(self.ctx)
 
+        city_fd = Pango.FontDescription("Georgia Bold 24")
         header_fd = Pango.FontDescription("Georgia Bold 12")
         label_column_fd  = Pango.FontDescription("DejaVu 6")
 
+        city_layout, city_fascent, city_fheight, city_em = \
+            self._create_layout_with_font(self.ctx, pc, city_fd)
         header_layout, header_fascent, header_fheight, header_em = \
             self._create_layout_with_font(self.ctx, pc, header_fd)
         label_layout, label_fascent, label_fheight, label_em = \
@@ -110,6 +136,8 @@ class MultiPageStreetIndexRenderer:
         # according to pangocairo docs). If we want to render with
         # another resolution (different from 72), we have to scale the
         # pangocairo resolution accordingly:
+        PangoCairo.context_set_resolution(city_layout.get_context(),
+                                          96.*dpi/UTILS.PT_PER_INCH)
         PangoCairo.context_set_resolution(column_layout.get_context(),
                                           96.*dpi/UTILS.PT_PER_INCH)
         PangoCairo.context_set_resolution(label_layout.get_context(),
@@ -119,113 +147,150 @@ class MultiPageStreetIndexRenderer:
 
         margin = label_em
 
-        # find largest label and location
-        max_label_drawing_width = 0.0
-        max_location_drawing_width = 0.0
-        for category in self.index_categories:
-            for street in category.items:
-                w = street.label_drawing_width(label_layout)
-                if w > max_label_drawing_width:
-                    max_label_drawing_width = w
+        tmpWidth = self.rendering_area_w - (self.page_offset / 2.)
+        # print("tmpWidth %d" % tmpWidth)
+        city_layout.set_width(UTILS.convert_pt_to_dots(tmpWidth, dpi))
 
-                w = street.location_drawing_width(label_layout)
-                if w > max_location_drawing_width:
-                    max_location_drawing_width = w
+        firstPage = True
+        cities = list(self.index_categories.keys())
+        cities.sort()
+        for city in cities:
+            # create new page - if it is not the first one
+            if not firstPage:
+                self._new_page()
+            firstPage = False
 
-        # No street to render, bail out
-        if max_label_drawing_width == 0.0:
-            return
+            cityTopMargin = city_fheight if len(cities) > 1 else 0
+            if cityTopMargin > 0:
+                self._draw_page_header(self._i18n.isrtl(), self.ctx, pc, city_layout,
+                            UTILS.convert_pt_to_dots(city_fascent, dpi),
+                            UTILS.convert_pt_to_dots(city_fheight, dpi),
+                            UTILS.convert_pt_to_dots(self.rendering_area_x
+                                                     + (margin / 2.), dpi),
+                            UTILS.convert_pt_to_dots(self.rendering_area_y
+                                                    + (margin / 2.)
+                                                    + header_fascent, dpi),
+                            city)
 
-        # Find best number of columns
-        max_drawing_width = \
-            max_label_drawing_width + max_location_drawing_width + 2 * margin
-        max_drawing_height = self.rendering_area_h - PAGE_NUMBER_MARGIN_PT
+            # find largest label and location
+            max_label_drawing_width = 0.0
+            max_location_drawing_width = 0.0
 
-        columns_count = int(math.ceil(self.rendering_area_w / max_drawing_width))
-        # following test should not be needed. No time to prove it. ;-)
-        if columns_count == 0:
-            columns_count = 1
+            for category in self.index_categories[city]:
+                for street in category.items:
+                    w = street.label_drawing_width(label_layout)
+                    if w > max_label_drawing_width:
+                        max_label_drawing_width = w
 
-        # We have now have several columns
-        column_width = self.rendering_area_w / columns_count
+                    w = street.location_drawing_width(label_layout)
+                    if w > max_location_drawing_width:
+                        max_location_drawing_width = w
 
-        column_layout.set_width(int(UTILS.convert_pt_to_dots(
-                    (column_width - margin) * Pango.SCALE, dpi)))
-        label_layout.set_width(int(UTILS.convert_pt_to_dots(
-                    (column_width - margin - max_location_drawing_width
-                     - 2 * label_em)
-                    * Pango.SCALE, dpi)))
-        header_layout.set_width(int(UTILS.convert_pt_to_dots(
-                    (column_width - margin) * Pango.SCALE, dpi)))
+            # No street to render, bail out
+            if max_label_drawing_width == 0.0:
+                return
 
-        if not self._i18n.isrtl():
-            orig_offset_x = offset_x = margin/2.
-            orig_delta_x  = delta_x  = column_width
-        else:
-            orig_offset_x = offset_x = \
-                self.rendering_area_w - column_width + margin/2.
-            orig_delta_x  = delta_x  = - column_width
+            # Find best number of columns
+            max_drawing_width = \
+                max_label_drawing_width + max_location_drawing_width + 2 * margin
+            max_drawing_height = self.rendering_area_h - cityTopMargin - PAGE_NUMBER_MARGIN_PT
 
-        actual_n_cols = 0
-        offset_y = margin/2.
+            columns_count = int(math.ceil(self.rendering_area_w / max_drawing_width))
+            # following test should not be needed. No time to prove it. ;-)
+            if columns_count == 0:
+                columns_count = 1
 
-        # page number of first page
-        self._draw_page_number()
+            # We have now have several columns
+            column_width = self.rendering_area_w / columns_count
 
-        for category in self.index_categories:
-            if ( offset_y + header_fheight + label_fheight
-                 + margin/2. > max_drawing_height ):
-                offset_y       = margin/2.
-                offset_x      += delta_x
-                actual_n_cols += 1
+            column_layout.set_width(int(UTILS.convert_pt_to_dots(
+                        (column_width - margin) * Pango.SCALE, dpi)))
+            label_layout.set_width(int(UTILS.convert_pt_to_dots(
+                        (column_width - margin - max_location_drawing_width
+                        - 2 * label_em)
+                        * Pango.SCALE, dpi)))
+            header_layout.set_width(int(UTILS.convert_pt_to_dots(
+                        (column_width - margin) * Pango.SCALE, dpi)))
 
-                if actual_n_cols == columns_count:
-                    self._new_page()
-                    actual_n_cols = 0
-                    offset_y = margin / 2.
-                    offset_x = orig_offset_x
-                    delta_x  = orig_delta_x
+            if not self._i18n.isrtl():
+                orig_offset_x = offset_x = margin/2.
+                orig_delta_x  = delta_x  = column_width
+            else:
+                orig_offset_x = offset_x = \
+                    self.rendering_area_w - column_width + margin/2.
+                orig_delta_x  = delta_x  = - column_width
 
-            category.draw(self._i18n.isrtl(), self.ctx, pc, header_layout,
-                          UTILS.convert_pt_to_dots(header_fascent, dpi),
-                          UTILS.convert_pt_to_dots(header_fheight, dpi),
-                          UTILS.convert_pt_to_dots(self.rendering_area_x
-                                                   + offset_x, dpi),
-                          UTILS.convert_pt_to_dots(self.rendering_area_y
-                                                   + offset_y
-                                                   + header_fascent, dpi))
+            actual_n_cols = 0
+            offset_y = margin/2. + cityTopMargin
 
-            offset_y += header_fheight
+            # page number of first page
+            self._draw_page_number()
 
-            for street in category.items:
-                label_height = street.label_drawing_height(label_layout)
-                if ( offset_y + label_height + margin/2.
-                     > max_drawing_height ):
-                    offset_y       = margin/2.
+            # print(self.index_categories[city])
+            for category in self.index_categories[city]:
+                if ( offset_y + header_fheight + label_fheight
+                    + margin/2. > max_drawing_height ):
+                    offset_y       = margin/2. + cityTopMargin
                     offset_x      += delta_x
                     actual_n_cols += 1
 
                     if actual_n_cols == columns_count:
                         self._new_page()
+
+                        if cityTopMargin > 0:
+                            self._draw_page_header(self._i18n.isrtl(), self.ctx, pc, city_layout,
+                                        UTILS.convert_pt_to_dots(city_fascent, dpi),
+                                        UTILS.convert_pt_to_dots(city_fheight, dpi),
+                                        UTILS.convert_pt_to_dots(self.rendering_area_x, dpi),
+                                        UTILS.convert_pt_to_dots(self.rendering_area_y + city_fascent, dpi),
+                                        city)
+
                         actual_n_cols = 0
-                        offset_y = margin / 2.
+                        offset_y = margin / 2. + cityTopMargin
                         offset_x = orig_offset_x
                         delta_x  = orig_delta_x
 
-                street.draw(self._i18n.isrtl(), self.ctx, pc, column_layout,
-                            UTILS.convert_pt_to_dots(label_fascent, dpi),
-                            UTILS.convert_pt_to_dots(label_fheight, dpi),
+                category_height = category.label_drawing_height(header_layout)
+                category.draw(self._i18n.isrtl(), self.ctx, pc, header_layout,
+                            UTILS.convert_pt_to_dots(header_fascent, dpi),
+                            UTILS.convert_pt_to_dots(header_fheight, dpi),
                             UTILS.convert_pt_to_dots(self.rendering_area_x
-                                                     + offset_x, dpi),
+                                                    + offset_x, dpi),
                             UTILS.convert_pt_to_dots(self.rendering_area_y
-                                                     + offset_y
-                                                     + label_fascent, dpi),
-                            label_layout,
-                            UTILS.convert_pt_to_dots(label_height, dpi),
-                            UTILS.convert_pt_to_dots(max_location_drawing_width,
-                                                     dpi))
+                                                    + offset_y
+                                                    + header_fascent, dpi))
 
-                offset_y += label_height
+                offset_y += category_height
+
+                for street in category.items:
+                    label_height = street.label_drawing_height(label_layout)
+                    if ( offset_y + label_height + margin/2.
+                        > max_drawing_height ):
+                        offset_y       = margin/2. + cityTopMargin
+                        offset_x      += delta_x
+                        actual_n_cols += 1
+
+                        if actual_n_cols == columns_count:
+                            self._new_page()
+                            actual_n_cols = 0
+                            offset_y = margin / 2. + cityTopMargin
+                            offset_x = orig_offset_x
+                            delta_x  = orig_delta_x
+
+                    street.draw(self._i18n.isrtl(), self.ctx, pc, column_layout,
+                                UTILS.convert_pt_to_dots(label_fascent, dpi),
+                                UTILS.convert_pt_to_dots(label_fheight, dpi),
+                                UTILS.convert_pt_to_dots(self.rendering_area_x
+                                                        + offset_x, dpi),
+                                UTILS.convert_pt_to_dots(self.rendering_area_y
+                                                        + offset_y
+                                                        + label_fascent, dpi),
+                                label_layout,
+                                UTILS.convert_pt_to_dots(label_height, dpi),
+                                UTILS.convert_pt_to_dots(max_location_drawing_width,
+                                                        dpi))
+
+                    offset_y += label_height
 
 
         self.ctx.restore()

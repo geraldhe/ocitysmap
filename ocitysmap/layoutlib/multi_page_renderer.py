@@ -103,7 +103,7 @@ class MultiPageRenderer(Renderer):
         OVERLAP_MARGIN_MM = 20
 
         # Debug: show original bounding box as JS code
-        # print self.rc.bounding_box.as_javascript("original", "#00ff00")
+        # print(self.rc.bounding_box.as_javascript("original", "#00ff00"))
 
         # Convert the original Bounding box into Mercator meters
         self._proj = mapnik.Projection(coords._MAPNIK_PROJECTION)
@@ -226,7 +226,7 @@ class MultiPageRenderer(Renderer):
                     self.page_disposition[col].append(None)
         # Debug: show per-page bounding boxes as JS code
         # for i, (bb, bb_inner) in enumerate(bboxes):
-        #    print bb.as_javascript(name="p%d" % i)
+        #   print(bb.as_javascript(name="p%d" % i))
 
         self.pages = []
 
@@ -292,8 +292,13 @@ class MultiPageRenderer(Renderer):
                 self.overview_overlay_canvases.append(ov_canvas)
 
         # Create the map canvas for each page
-        indexes = []
+        indexes = dict()
+        for name in self.rc.name_to_polygon:
+            indexes[name] = []
+
         for i, (bb, bb_inner) in enumerate(bboxes):
+            # print(bb.as_javascript(name="p%d - bb" % i))
+            # print(bb_inner.as_javascript(name="p%d - bb_inner" % i))
 
             # Create the gray shape around the map
             exterior = shapely.wkt.loads(bb.as_wkt())
@@ -303,6 +308,12 @@ class MultiPageRenderer(Renderer):
                 bb, os.path.join(self.tmpdir, 'shade%d.shp' % i),
                 'shade%d' % i)
             shade.add_shade_from_wkt(shade_wkt)
+
+            #if self.rc.osmids != None:
+                # check if any osmid-area overlaps with this...
+            #    LOG.debug("DATADA")
+            #    LOG.debug(self.rc.name_to_polygon)
+            #    LOG.debug(self.rc.osmids)
 
             # Create the contour shade
 
@@ -358,17 +369,25 @@ class MultiPageRenderer(Renderer):
 
             self.pages.append((map_canvas, map_grid, overlay_canvases, overlay_effects))
 
-            # Create the index for the current page
-            inside_contour_wkt = interior_contour.intersection(interior).wkt
-            index = StreetIndex(self.db,
-                                inside_contour_wkt,
-                                self.rc.i18n, page_number=(i + self._first_map_page_number))
+            for name in self.rc.name_to_polygon:
+                inside_contour_wkt = interior_contour.intersection(interior).intersection(self.rc.name_to_polygon[name])
+                if not inside_contour_wkt.is_empty:
+                    # Create the index for the current page
+                    # inside_contour_wkt = interior_contour.intersection(interior).wkt
+                    # LOG.debug("WktString('%s', 'inside_contour_wkt %d')" % (inside_contour_wkt, i) )
 
-            index.apply_grid(map_grid)
-            indexes.append(index)
+                    index = StreetIndex(self.db,
+                                        inside_contour_wkt,
+                                        # self.rc.name_to_polygon['Klam'],
+                                        self.rc.i18n, page_number=(i + self._first_map_page_number))
+
+                    index.apply_grid(map_grid)
+                    indexes[name].append(index)
 
         # Merge all indexes
-        self.index_categories = self._merge_page_indexes(indexes)
+        self.index_categories = dict()
+        for name in self.rc.name_to_polygon:
+            self.index_categories[name] = self._merge_page_indexes(indexes[name])
 
         # Prepare the small map for the front page
         self._prepare_front_page_map(dpi)
@@ -899,10 +918,10 @@ class MultiPageRenderer(Renderer):
         self._render_overview_page(ctx, cairo_surface, dpi)
 
         for map_number, (canvas, grid, overlay_canvases, overlay_effects) in enumerate(self.pages):
-            LOG.info('Map page %d of %d' % (map_number + 1, len(self.pages)))
+            # LOG.info('Map page %d of %d' % (map_number + 1, len(self.pages)))
             rendered_map = canvas.get_rendered_map()
-            LOG.debug('Mapnik scale: 1/%f' % rendered_map.scale_denominator())
-            LOG.debug('Actual scale: 1/%f' % canvas.get_actual_scale())
+            # LOG.debug('Mapnik scale: 1/%f' % rendered_map.scale_denominator())
+            # LOG.debug('Actual scale: 1/%f' % canvas.get_actual_scale())
 
             dest_tag = "mypage%d" % (map_number + self._first_map_page_number)
             draw_utils.anchor(ctx, dest_tag)

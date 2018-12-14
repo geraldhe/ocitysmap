@@ -360,7 +360,7 @@ class StreetIndex:
         """
 
         cursor = db.cursor()
-        l.debug("Getting streets...")
+        # l.debug("Getting streets...")
 
         # PostGIS >= 1.5.0 for this to work:
         query = """
@@ -416,7 +416,7 @@ from
 
         result = []
         for catname, db_amenity, label in self._get_selected_amenities():
-            l.debug("Getting amenities for %s/%s..." % (catname, db_amenity))
+            # l.debug("Getting amenities for %s/%s..." % (catname, db_amenity))
 
             # Get the current IndexCategory object, or create one if
             # different than previous
@@ -479,8 +479,8 @@ order by amenity_name""" \
                                                                       endpoint2,
                                                                       self._page_number))
 
-            l.debug("Got %d amenities for %s/%s."
-                    % (len(current_category.items), catname, db_amenity))
+            # l.debug("Got %d amenities for %s/%s."
+            #         % (len(current_category.items), catname, db_amenity))
 
         return [category for category in result if category.items]
 
@@ -554,8 +554,8 @@ order by village_name""" \
                                                                   endpoint2,
                                                                   self._page_number))
 
-        l.debug("Got %d villages for %s."
-                % (len(current_category.items), 'Villages'))
+        # l.debug("Got %d villages for %s."
+        #         % (len(current_category.items), 'Villages'))
 
         return [category for category in result if category.items]
 

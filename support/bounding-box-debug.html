@@ -16,22 +16,32 @@
     <title>Leaflet Quick Start Guide Example</title>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet"
-	  href="http://code.leafletjs.com/leaflet-0.3.1/leaflet.css" />
-    <!--[if lte IE 8]><link rel="stylesheet" href="../dist/leaflet.ie.css" /><![endif]-->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.3.4/dist/leaflet.css"
+      integrity="sha512-puBpdR0798OZvTTbP4A8Ix/l+A4dHDD0DGqYW6RQ+9jxkRFclaxxQb/SJAWZfWAkuyeQUytO7+7N4QKrDh+drA=="
+      crossorigin=""/>
+    <!-- Make sure you put this AFTER Leaflet's CSS -->
+    <script src="https://unpkg.com/leaflet@1.3.4/dist/leaflet.js"
+      integrity="sha512-nMMmRyTVoLYqjP9hrbed9S+FzjZHW5gY1TWCHA5ckwXZBadntCNs8kEqAWdrb9O7rxbCaA4lKTIWjDXZxflOcA=="
+      crossorigin=""></script>
+    <script src='wicket.js'></script>
+    <script src='wicket-leaflet.js'></script>
   </head>
   <body>
     <div id="map" style="width: 100%; height: 600px"></div>
-    <script src="http://code.leafletjs.com/leaflet-0.3.1/leaflet.js"></script>
     <script>
-var map = new L.Map('map');
+  var map = new L.Map('map');
 
-var cloudmadeUrl = 'http://{s}.tile.cloudmade.com/BC9A493B41014CAABB98F0471D759707/997/256/{z}/{x}/{y}.png',
-cloudmadeAttribution = 'Map data © 2011 OpenStreetMap contributors, Imagery © 2011 CloudMade',
-cloudmade = new L.TileLayer(cloudmadeUrl, {maxZoom: 18, attribution: cloudmadeAttribution});
+  // create the tile layer with correct attribution
+  var osmUrl='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+	var osmAttrib='Map data © <a href="https://openstreetmap.org">OpenStreetMap</a> contributors';
+	var osm = new L.TileLayer(osmUrl, {minZoom: 8, maxZoom: 25, attribution: osmAttrib});		
 
-/* Define the center of the map and the zoom level */
-map.setView(new L.LatLng(47.9947, 5.9155), 13).addLayer(cloudmade);
+	// start the map in South-East England
+	map.setView(new L.LatLng(51.3, 0.7),9);
+	map.addLayer(osm);
+
+  /* Define the center of the map and the zoom level */
+  map.setView(new L.LatLng(48.14, 14.48), 13);
 
 function BoundingBox(lat1, lng1, lat2, lng2, str, color) {
     var p1 = new L.LatLng(lat1, lng1),
@@ -43,6 +53,43 @@ function BoundingBox(lat1, lng1, lat2, lng2, str, color) {
 
     polygon.bindPopup(str);
     map.addLayer(polygon);
+}
+
+function WktString(str, label) {
+  wkt = new Wkt.Wkt();
+  try { // Catch any malformed WKT strings
+    wkt.read(str);
+  } catch (e1) {
+      try {
+          wkt.read(str.replace('\n', '').replace('\r', '').replace('\t', ''));
+      } catch (e2) {
+          if (e2.name === 'WKTError') {
+              alert('Wicket could not understand the WKT string you entered. Check that you have parentheses balanced, and try removing tabs and newline characters.');
+              return;
+          }
+      }
+  }
+
+  obj = wkt.toObject(map.defaults); // Make an object
+  // Add listeners for overlay editing events
+  // if (wkt.type === 'polygon' || wkt.type === 'linestring') {
+  // }
+  console.dir(obj);
+  if (Wkt.isArray(obj)) { // Distinguish multigeometries (Arrays) from objects
+      for (i in obj) {
+          if (obj.hasOwnProperty(i) && !Wkt.isArray(obj[i])) {
+              obj[i].addTo(map);
+              obj[i].bindTooltip(label, {permanent: false, direction:"center"}).openTooltip();
+
+          }
+      }
+  } else {
+      obj.addTo(map); // Add it to the map
+      obj.bindTooltip(label, {permanent: false, direction:"center"}).openTooltip();
+  }
+
+  // map.fitBounds();
+
 }
 
 /* List of bounding boxes */
@@ -61,3 +108,4 @@ BoundingBox(47.980237,5.922775,47.973013,5.930689, "after-5", { color: "#00ff00"
     </script>
   </body>
 </html>
+
