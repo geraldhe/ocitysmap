@@ -57,7 +57,7 @@ class Stylesheet:
         self.group       = '' # str
 
         self.grid_line_color = 'black'
-        self.grid_line_alpha = 0.5
+        self.grid_line_alpha = 0.2
         self.grid_line_width = 1
 
         self.shade_color = 'black'
