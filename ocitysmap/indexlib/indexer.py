@@ -309,7 +309,7 @@ class StreetIndex:
         try:
             sorted_sl = sorted([(self._i18n.user_readable_street(name),
                                  linestring) for name,linestring in sl],
-                               key = natsort_keygen(alg=ns.LOCALE|ns.IGNORECASE|ns.TYPESAFE, key=lambda street: street[0]))
+                               key = natsort_keygen(alg=ns.LOCALE|ns.IGNORECASE, key=lambda street: street[0]))
         finally:
             locale.setlocale(locale.LC_COLLATE, prev_locale)
 
