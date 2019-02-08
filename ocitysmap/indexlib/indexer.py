@@ -116,13 +116,15 @@ class PoiIndex:
         for cat in j['nodes']:
             c = commons.PoiIndexCategory(cat['text'], color=cat['color'], icon=cat['icon'])
             for node in cat['nodes']:
-                c.items.append(
-                    commons.PoiIndexItem(node['text'],
-                                         ocitysmap.coords.Point(float(node['lat']),
-                                                                float(node['lon'])),
-                                         icon = node['icon']));
-            self._categories.append(c)
-
+                try:
+                    c.items.append(
+                        commons.PoiIndexItem(node['text'],
+                                             ocitysmap.coords.Point(float(node['lat']),
+                                                                    float(node['lon'])),
+                                             icon = node['icon']));
+                    self._categories.append(c)
+                except:
+                    pass
         return True        
 
     def write_to_csv(self, title, output_filename):
