@@ -490,10 +490,11 @@ SELECT ST_AsText(ST_LongestLine(
 
         LOG.debug('Rendering to %s format...' % output_format.upper())
 
-        factory = None
         dpi = layoutlib.commons.PT_PER_INCH
 
         config.output_format = output_format
+
+        renderer = renderer_cls(self._db, config, tmpdir, dpi, file_prefix)
 
         if output_format == 'png':
             try:
@@ -508,6 +509,8 @@ SELECT ST_AsText(ST_LongestLine(
                 LOG.warning("%d DPI to high for this paper size, using 72dpi instead" % dpi)
                 dpi = layoutlib.commons.PT_PER_INCH
 
+            # as the dpi value may have changed we need to re-create the renderer
+            renderer = renderer_cls(self._db, config, tmpdir, dpi, file_prefix)
                 
             # As strange as it may seem, we HAVE to use a vector
             # device here and not a raster device such as
@@ -515,40 +518,25 @@ SELECT ST_AsText(ST_LongestLine(
             # ImageSurface, the font metrics would NOT match those
             # pre-computed by renderer_cls.__init__() and used to
             # layout the whole page
-            def factory(w,h):
-                w_px = int(layoutlib.commons.convert_pt_to_dots(w, dpi))
-                h_px = int(layoutlib.commons.convert_pt_to_dots(h, dpi))
-                LOG.debug("Rendering PNG into %dpx x %dpx area at %ddpi ..."
-                          % (w_px, h_px, dpi))
-                return cairo.PDFSurface(None, w_px, h_px)
+            w_px = int(layoutlib.commons.convert_pt_to_dots(renderer.paper_width_pt, dpi))
+            h_px = int(layoutlib.commons.convert_pt_to_dots(renderer.paper_height_pt, dpi))
+            LOG.debug("Rendering PNG into %dpx x %dpx area at %ddpi ..."
+                      % (w_px, h_px, dpi))
+            surface = cairo.PDFSurface(None, w_px, h_px)
 
         elif output_format == 'svg':
-            factory = lambda w,h: cairo.SVGSurface(output_filename, w, h)
+            surface = cairo.SVGSurface(output_filename,
+                                       renderer.paper_width_pt, renderer.paper_height_pt)
+            surface.restrict_to_version(cairo.SVGVersion.VERSION_1_2);
         elif output_format == 'svgz':
-            factory = lambda w,h: cairo.SVGSurface(
-                    gzip.GzipFile(output_filename, 'wb'), w, h)
+            surface = cairo.SVGSurface(gzip.GzipFile(output_filename, 'wb'),
+                                       renderer.paper_width_pt, renderer.paper_height_pt)
+            surface.restrict_to_version(cairo.SVGVersion.VERSION_1_2);
         elif output_format == 'pdf':
-            factory = lambda w,h: cairo.PDFSurface(output_filename, w, h)
-        elif output_format == 'ps':
-            factory = lambda w,h: cairo.PSSurface(output_filename, w, h)
-        elif output_format == 'ps.gz':
-            factory = lambda w,h: cairo.PSSurface(
-                gzip.GzipFile(output_filename, 'wb'), w, h)
-        elif output_format == 'csv':
-            # We don't render maps into CSV.
-            return
+            surface = cairo.PDFSurface(output_filename,
+                                       renderer.paper_width_pt, renderer.paper_height_pt)
+            surface.restrict_to_version(cairo.PDFVersion.VERSION_1_5);
 
-        else:
-            raise ValueError( \
-                'Unsupported output format: %s!' % output_format.upper())
-
-        renderer = renderer_cls(self._db, config, tmpdir, dpi, file_prefix)
-
-        surface = factory(renderer.paper_width_pt, renderer.paper_height_pt)
-
-        renderer.render(surface, dpi, osm_date)
-
-        if output_format == 'pdf':
             surface.set_metadata(cairo.PDFMetadata.CREATOR,
                                  'MyOSMatic <https://print.get-map.org/>')
             surface.set_metadata(cairo.PDFMetadata.TITLE,
@@ -561,7 +549,23 @@ SELECT ST_AsText(ST_LongestLine(
             surface.set_metadata(cairo.PDFMetadata.KEYWORDS,
                                  "OpenStreetMap, MapOSMatic, OCitysMap")
 
+        elif output_format == 'ps':
+            surface = cairo.PSSurface(output_filename,
+                                      renderer.paper_width_pt, renderer.paper_height_pt)
+        elif output_format == 'ps.gz':
+            surface = cairo.PSSurface(gzip.GzipFile(output_filename, 'wb'),
+                                      renderer.paper_width_pt, renderer.paper_height_pt)
+        elif output_format == 'csv':
+            # We don't render maps into CSV.
+            return
+        else:
+            raise ValueError( \
+                'Unsupported output format: %s!' % output_format.upper())
+
+        renderer.render(surface, dpi, osm_date)
+
         LOG.debug('Writing %s...' % output_filename)
+
         if output_format == 'png':
             surface.write_to_png(output_filename)
 
