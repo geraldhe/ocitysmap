@@ -44,19 +44,23 @@ class MultiPageStreetIndexRenderer:
 
     # ctx: Cairo context
     # surface: Cairo surface
-    def __init__(self, i18n, ctx, surface, index_categories, rendering_area,
+    def __init__(self, i18n, ctx, surface, index_categories, rendering_area, margins, print_bleed_difference_pt,
                  page_offset):
-        self._i18n           = i18n
-        self.ctx            = ctx
-        self.surface        = surface
+        self._i18n            = i18n
+        self.ctx              = ctx
+        self.surface          = surface
         self.index_categories = index_categories
-        self.rendering_area_x = rendering_area[0]
-        self.rendering_area_y = rendering_area[1]
-        self.rendering_area_w = rendering_area[2]
-        self.rendering_area_h = rendering_area[3]
+        self.rendering_area_x = Renderer.PRINT_SAFE_MARGIN_PT
+        self.rendering_area_y = Renderer.PRINT_SAFE_MARGIN_PT
+        self.print_safe_margin_pt = Renderer.PRINT_SAFE_MARGIN_PT
+        self.rendering_area_w = rendering_area[0]
+        self.rendering_area_h = rendering_area[1]
+        self.margin_inside_pt = margins[0]
+        self.margin_outside_pt = margins[1]
+        self.margin_top_bottom_pt = margins[2]
+        self.print_bleed_difference_pt = print_bleed_difference_pt
         self.page_offset      = page_offset
         self.index_page_num   = 1
-        self.index_page_num = self.index_page_num
 
     def _create_layout_with_font(self, ctx, pc, font_desc):
         layout = PangoCairo.create_layout(ctx)
@@ -73,39 +77,43 @@ class MultiPageStreetIndexRenderer:
 
     def _draw_page_number(self):
         self.ctx.save()
-        self.ctx.translate(Renderer.PRINT_SAFE_MARGIN_PT,
-                           Renderer.PRINT_SAFE_MARGIN_PT)
+
         draw_utils.render_page_number(self.ctx,
                                       self.index_page_num + self.page_offset,
                                       self.rendering_area_w,
                                       self.rendering_area_h,
-                                      PAGE_NUMBER_MARGIN_PT,
+                                      self.margin_inside_pt,
+                                      self.margin_outside_pt,
+                                      self.margin_top_bottom_pt,
+                                      self.print_bleed_difference_pt,
                                       transparent_background = False)
         self.ctx.restore()
         self.surface.set_page_label('Index page %d' % (self.index_page_num))
 
     def _draw_page_header(self, rtl, ctx, pc, layout, fascent, fheight,
              baseline_x, baseline_y, text):
+
+        contentWidth = self.rendering_area_w - 2*self.print_bleed_difference_pt - self.margin_inside_pt - self.margin_outside_pt
+        marginLeft = self.print_bleed_difference_pt + (self.margin_inside_pt if (self.index_page_num + self.page_offset) % 2 else self.margin_outside_pt)
+        # calculate height -> fill background first.
+        layout.set_text(text, -1)
+        ext = layout.get_extents()
+        textblock_height = float(ext.ink_rect.height)/Pango.SCALE * 1.8
+
+
+        # background
         self.ctx.save()
         self.ctx.set_source_rgb(0.9, 0.9, 0.9)
-        self.ctx.rectangle(baseline_x, baseline_y - fascent,
-                      self.rendering_area_w, fheight)
+        self.ctx.rectangle(0, 0, self.rendering_area_w, self.print_bleed_difference_pt + textblock_height)
         self.ctx.fill()
 
+        # text
         self.ctx.set_source_rgb(0.0, 0.0, 0.0)
-
-        # draw_utils.draw_text_center(ctx, pc, layout, fascent, fheight,
-        #                             baseline_x, baseline_y, text)
-        # print(layout.get_width())
-        # print("draw-city %d %d %d %d %s" % (fascent, fheight,
-        #                             baseline_x, baseline_y, text))
-        # self.ctx.restore()
-
-        #self.ctx.save()
-        #self.ctx.translate(Renderer.PRINT_SAFE_MARGIN_PT,
-        #                   Renderer.PRINT_SAFE_MARGIN_PT)
-        draw_utils.draw_simpletext_center(self.ctx, text, self.rendering_area_w / 2, baseline_y)
+        self.ctx.translate(0, self.print_bleed_difference_pt + fheight/4) # TODO: correct fheight/4
+        draw_utils.draw_text_center(self.ctx, pc, layout, fascent, textblock_height, marginLeft, baseline_y , text) #baseline_y
         self.ctx.restore()
+
+        return textblock_height
 
     def _new_page(self):
         self.surface.show_page()
@@ -118,8 +126,8 @@ class MultiPageStreetIndexRenderer:
         # Create a PangoCairo context for drawing to Cairo
         pc = PangoCairo.create_context(self.ctx)
 
-        city_fd = Pango.FontDescription("Georgia Bold 24")
-        header_fd = Pango.FontDescription("Georgia Bold 12")
+        city_fd = Pango.FontDescription("DejaVu Sans Condensed Bold 18")
+        header_fd = Pango.FontDescription("DejaVu Sans Condensed Bold 12")
         label_column_fd  = Pango.FontDescription("DejaVu 6")
 
         city_layout, city_fascent, city_fheight, city_em = \
@@ -146,10 +154,10 @@ class MultiPageStreetIndexRenderer:
                                           96.*dpi/UTILS.PT_PER_INCH)
 
         margin = label_em
+        cityBlockHeight = city_fheight * 2
 
-        tmpWidth = self.rendering_area_w - (self.page_offset / 2.)
-        # print("tmpWidth %d" % tmpWidth)
-        city_layout.set_width(UTILS.convert_pt_to_dots(tmpWidth, dpi))
+        index_area_w_pt = self.rendering_area_w - 2*self.print_bleed_difference_pt - self.margin_inside_pt - self.margin_outside_pt
+        city_layout.set_width(int(UTILS.convert_pt_to_dots((index_area_w_pt) * Pango.SCALE, dpi)))
 
         firstPage = True
         cities = list(self.index_categories.keys())
@@ -160,17 +168,41 @@ class MultiPageStreetIndexRenderer:
                 self._new_page()
             firstPage = False
 
-            cityTopMargin = city_fheight if len(cities) > 1 else 0
-            if cityTopMargin > 0:
-                self._draw_page_header(self._i18n.isrtl(), self.ctx, pc, city_layout,
+            index_area_h_pt = self.rendering_area_h - 2*self.print_bleed_difference_pt - self.margin_top_bottom_pt
+
+            if False:
+                # temp: show area without bleed-difference
+                self.ctx.save()
+                self.ctx.set_source_rgb(.95,.95,.95)
+                self.ctx.rectangle(
+                    self.print_bleed_difference_pt + self.print_safe_margin_pt,
+                    self.print_bleed_difference_pt + self.print_safe_margin_pt,
+                    self.rendering_area_w - 2*self.print_bleed_difference_pt - 2*self.print_safe_margin_pt,
+                    self.rendering_area_h - 2*self.print_bleed_difference_pt - 2*self.print_safe_margin_pt)
+                self.ctx.fill()
+                self.ctx.restore()
+
+                # temp: show content-area (inside grayed margin)
+                self.ctx.save()
+                self.ctx.set_source_rgb(.85,.85,.85)
+                self.ctx.rectangle(
+                    self.print_bleed_difference_pt + self.print_safe_margin_pt + (self.margin_inside_pt if (self.index_page_num + self.page_offset) % 2 else self.margin_outside_pt),
+                    self.print_bleed_difference_pt + self.print_safe_margin_pt + self.margin_top_bottom_pt,
+                    index_area_w_pt,
+                    index_area_h_pt
+                )
+                self.ctx.fill()
+                self.ctx.restore()
+
+            cityTopMargin = 0
+            if len(cities) > 1:
+                cityTopMargin = self.print_bleed_difference_pt + self.print_safe_margin_pt + (margin/2.) + self._draw_page_header(self._i18n.isrtl(), self.ctx, pc, city_layout,
                             UTILS.convert_pt_to_dots(city_fascent, dpi),
-                            UTILS.convert_pt_to_dots(city_fheight, dpi),
-                            UTILS.convert_pt_to_dots(self.rendering_area_x
-                                                     + (margin / 2.), dpi),
-                            UTILS.convert_pt_to_dots(self.rendering_area_y
-                                                    + (margin / 2.)
-                                                    + header_fascent, dpi),
+                            UTILS.convert_pt_to_dots(cityBlockHeight, dpi),
+                            UTILS.convert_pt_to_dots(self.rendering_area_x + self.print_bleed_difference_pt + (self.margin_inside_pt if (self.index_page_num + self.page_offset) % 2 else self.margin_outside_pt), dpi),
+                            UTILS.convert_pt_to_dots(self.rendering_area_y + (margin / 2.) + header_fascent, dpi),
                             city)
+                index_area_h_pt = index_area_h_pt - cityTopMargin
 
             # find largest label and location
             max_label_drawing_width = 0.0
@@ -195,13 +227,13 @@ class MultiPageStreetIndexRenderer:
                 max_label_drawing_width + max_location_drawing_width + 2 * margin
             max_drawing_height = self.rendering_area_h - cityTopMargin - PAGE_NUMBER_MARGIN_PT
 
-            columns_count = int(math.ceil(self.rendering_area_w / max_drawing_width))
+            columns_count = int(math.ceil(index_area_w_pt / max_drawing_width))
             # following test should not be needed. No time to prove it. ;-)
             if columns_count == 0:
                 columns_count = 1
 
             # We have now have several columns
-            column_width = self.rendering_area_w / columns_count
+            column_width = index_area_w_pt / columns_count
 
             column_layout.set_width(int(UTILS.convert_pt_to_dots(
                         (column_width - margin) * Pango.SCALE, dpi)))
@@ -217,7 +249,7 @@ class MultiPageStreetIndexRenderer:
                 orig_delta_x  = delta_x  = column_width
             else:
                 orig_offset_x = offset_x = \
-                    self.rendering_area_w - column_width + margin/2.
+                    index_area_w_pt - column_width + margin/2.
                 orig_delta_x  = delta_x  = - column_width
 
             actual_n_cols = 0
@@ -241,7 +273,7 @@ class MultiPageStreetIndexRenderer:
                             self._draw_page_header(self._i18n.isrtl(), self.ctx, pc, city_layout,
                                         UTILS.convert_pt_to_dots(city_fascent, dpi),
                                         UTILS.convert_pt_to_dots(city_fheight, dpi),
-                                        UTILS.convert_pt_to_dots(self.rendering_area_x, dpi),
+                                        UTILS.convert_pt_to_dots(self.rendering_area_x + self.print_bleed_difference_pt + (self.margin_inside_pt if (self.index_page_num + self.page_offset) % 2 else self.margin_outside_pt), dpi),
                                         UTILS.convert_pt_to_dots(self.rendering_area_y + city_fascent, dpi),
                                         city)
 
@@ -254,7 +286,7 @@ class MultiPageStreetIndexRenderer:
                 category.draw(self._i18n.isrtl(), self.ctx, pc, header_layout,
                             UTILS.convert_pt_to_dots(header_fascent, dpi),
                             UTILS.convert_pt_to_dots(header_fheight, dpi),
-                            UTILS.convert_pt_to_dots(self.rendering_area_x
+                            UTILS.convert_pt_to_dots(self.rendering_area_x + self.print_bleed_difference_pt + (self.margin_inside_pt if (self.index_page_num + self.page_offset) % 2 else self.margin_outside_pt)
                                                     + offset_x, dpi),
                             UTILS.convert_pt_to_dots(self.rendering_area_y
                                                     + offset_y
@@ -272,6 +304,31 @@ class MultiPageStreetIndexRenderer:
 
                         if actual_n_cols == columns_count:
                             self._new_page()
+
+                            if False:
+                                # temp: show area without bleed-difference
+                                self.ctx.save()
+                                self.ctx.set_source_rgb(.95,.95,.95)
+                                self.ctx.rectangle(
+                                    self.print_bleed_difference_pt + self.print_safe_margin_pt,
+                                    self.print_bleed_difference_pt + self.print_safe_margin_pt,
+                                    self.rendering_area_w - 2*self.print_bleed_difference_pt - 2*self.print_safe_margin_pt,
+                                    self.rendering_area_h - 2*self.print_bleed_difference_pt - 2*self.print_safe_margin_pt)
+                                self.ctx.fill()
+                                self.ctx.restore()
+
+                                # temp: show content-area (inside grayed margin)
+                                self.ctx.save()
+                                self.ctx.set_source_rgb(.85,.85,.85)
+                                self.ctx.rectangle(
+                                    self.print_bleed_difference_pt + self.print_safe_margin_pt + (self.margin_inside_pt if (self.index_page_num + self.page_offset) % 2 else self.margin_outside_pt),
+                                    self.print_bleed_difference_pt + self.print_safe_margin_pt + self.margin_top_bottom_pt,
+                                    index_area_w_pt,
+                                    index_area_h_pt
+                                )
+                                self.ctx.fill()
+                                self.ctx.restore()
+
                             actual_n_cols = 0
                             offset_y = margin / 2. + cityTopMargin
                             offset_x = orig_offset_x
@@ -280,7 +337,7 @@ class MultiPageStreetIndexRenderer:
                     street.draw(self._i18n.isrtl(), self.ctx, pc, column_layout,
                                 UTILS.convert_pt_to_dots(label_fascent, dpi),
                                 UTILS.convert_pt_to_dots(label_fheight, dpi),
-                                UTILS.convert_pt_to_dots(self.rendering_area_x
+                                UTILS.convert_pt_to_dots(self.rendering_area_x + self.print_bleed_difference_pt + (self.margin_inside_pt if (self.index_page_num + self.page_offset) % 2 else self.margin_outside_pt)
                                                         + offset_x, dpi),
                                 UTILS.convert_pt_to_dots(self.rendering_area_y
                                                         + offset_y

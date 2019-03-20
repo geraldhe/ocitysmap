@@ -95,7 +95,7 @@ def draw_text_center(ctx, pc, layout, fascent, fheight,
         pango_alignment (enum): pango.ALIGN_ constant value
 
     Results:
-        A 3-uple left_x, baseline_y, right_x of the text rendered (cairo units)
+        A 3-tuple left_x, baseline_y, right_x of the text rendered (cairo units)
     """
     txt_width, txt_height = draw_text(ctx, pc, layout, fascent, fheight,
                                       baseline_x, baseline_y, text,
@@ -248,32 +248,32 @@ def draw_text_adjusted(ctx, text, x, y, width, height, max_char_number=None,
     PangoCairo.show_layout(ctx, layout)
     ctx.restore()
 
-def render_page_number(ctx, page_number,
-                       usable_area_width_pt, usable_area_height_pt, margin_pt,
-                       transparent_background = True):
+def render_page_number(ctx, page_number, usable_area_width_pt, usable_area_height_pt,
+                       margin_inside_pt, margin_outside_pt, margin_top_bottom_pt,
+                       print_bleed_difference_pt, transparent_background = True,):
     """
     Render page number
     """
     ctx.save()
     x_offset = 0
-    if page_number % 2:
+    if page_number % 2: # print at the right side of the page
         x_offset += commons.convert_pt_to_dots(usable_area_width_pt)\
-                  - commons.convert_pt_to_dots(margin_pt)
+                  - commons.convert_pt_to_dots(print_bleed_difference_pt + margin_outside_pt if page_number % 2 else margin_inside_pt)
     y_offset = commons.convert_pt_to_dots(usable_area_height_pt)\
-             - commons.convert_pt_to_dots(margin_pt)
+             - commons.convert_pt_to_dots(margin_top_bottom_pt + print_bleed_difference_pt)
     ctx.translate(x_offset, y_offset)
 
     if transparent_background:
         ctx.set_source_rgba(1, 1, 1, 0.6)
     else:
         ctx.set_source_rgba(0.8, 0.8, 0.8, 0.6)
-    ctx.rectangle(0, 0, commons.convert_pt_to_dots(margin_pt),
-                  commons.convert_pt_to_dots(margin_pt))
+    ctx.rectangle(0, 0, commons.convert_pt_to_dots(print_bleed_difference_pt + (margin_inside_pt if page_number % 2 else margin_outside_pt)),
+                  commons.convert_pt_to_dots(print_bleed_difference_pt + margin_top_bottom_pt))
     ctx.fill()
 
     ctx.set_source_rgba(0, 0, 0, 1)
-    x_offset = commons.convert_pt_to_dots(margin_pt)/2
-    y_offset = commons.convert_pt_to_dots(margin_pt)/2
+    x_offset = commons.convert_pt_to_dots(margin_outside_pt)/2 + (0 if page_number % 2 else commons.convert_pt_to_dots(print_bleed_difference_pt))
+    y_offset = commons.convert_pt_to_dots(margin_top_bottom_pt)/2
     ctx.translate(x_offset, y_offset)
     draw_simpletext_center(ctx, str(page_number), 0, 0)
     ctx.restore()

@@ -396,7 +396,7 @@ from
             cursor.execute(query % {'way':'st_buffer(way, 0)'})
         sl = cursor.fetchall()
 
-        l.debug("Got %d streets." % len(sl))
+        #l.debug("Got %d streets." % len(sl))
 
         return self._convert_street_index(sl)
 

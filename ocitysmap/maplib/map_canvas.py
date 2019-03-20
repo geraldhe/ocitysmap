@@ -139,8 +139,8 @@ class MapCanvas:
         self._shapes.append({'shape_file': shape_file,
                              'color': col,
                              'line_width': line_width})
-        l.debug('Added shape file %s to map canvas as layer %s.' %
-                (shape_file.get_filepath(), shape_file.get_layer_name()))
+        #l.debug('Added shape file %s to map canvas as layer %s.' %
+        #        (shape_file.get_filepath(), shape_file.get_layer_name()))
 
     def render(self):
         """Render the map in memory with all the added shapes. The Mapnik Map
@@ -169,7 +169,7 @@ class MapCanvas:
         return scale
 
     def _render_shape_file(self, shape_file, color, line_width):
-        l.debug("render_shape_file")
+        #l.debug("render_shape_file")
         shape_file.flush()
 
         shpid = os.path.basename(shape_file.get_filepath())

@@ -282,7 +282,7 @@ SELECT ST_AsText(ST_LongestLine(
         records = cursor.fetchone()
         try:
             # ((wkt,),) = records
-            # LOG.debug("NAME OF AREA: " + records[1])
+            # LOG.debug(records)
             wkt = records[0]
             if wkt is None:
                 raise ValueError

@@ -61,7 +61,13 @@ class Renderer:
     # The PRINT_SAFE_MARGIN_PT is a small margin we leave on all page borders
     # to ease printing as printers often eat up margins with misaligned paper,
     # etc.
-    PRINT_SAFE_MARGIN_PT = 15
+    PRINT_SAFE_MARGIN_PT = 0
+
+    PRINT_BLEED_DIFFERENCE_MM = 2 # 2mm Beschittzugabe
+
+    PRINT_BLEED_DIFFERENCE_PT = commons.convert_mm_to_pt(PRINT_BLEED_DIFFERENCE_MM)
+
+    LAYOUT_MARGIN_PT = 15
 
     GRID_LEGEND_MARGIN_RATIO = .02
 
@@ -89,9 +95,9 @@ class Renderer:
         self.grid         = None # The implementation is in charge of it
 
         self.paper_width_pt = \
-                commons.convert_mm_to_pt(self.rc.paper_width_mm)
+                commons.convert_mm_to_pt(self.rc.paper_width_mm + 2 * self.PRINT_BLEED_DIFFERENCE_MM)
         self.paper_height_pt = \
-                commons.convert_mm_to_pt(self.rc.paper_height_mm)
+                commons.convert_mm_to_pt(self.rc.paper_height_mm + 2 * self.PRINT_BLEED_DIFFERENCE_MM)
         self._title_margin_pt = 0
         self.dpi = dpi
 
@@ -115,7 +121,7 @@ class Renderer:
         """
         handle = Rsvg.Handle();
         try:
-            svg   = handle.new_from_file(path)
+            svg = handle.new_from_file(path)
         except Exception:
             LOG.warning("Cannot read SVG from '%s'." % path)
             return None, None

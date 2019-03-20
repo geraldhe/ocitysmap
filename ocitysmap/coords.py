@@ -162,6 +162,13 @@ class BoundingBox:
         return BoundingBox(self._lat1 + dlat, self._long1 - dlong,
                            self._lat2 - dlat, self._long2 + dlong)
 
+    def create_expanded2(self, dlat, dlong, dlat2, dlong2):
+        """Return a new bbox dlat/dlong added on the top-left sides, dlat2/dlong2 on the buttom-right sides"""
+        return BoundingBox(self._lat1 + dlat, # add to top
+                            self._long1 - dlong, 
+                            self._lat2 - dlat2, # add to bottom
+                            self._long2 + dlong2)
+
     def merge(self, bbox):
         self._lat1 = max(self._lat1, bbox._lat1)
         self._lat2 = min(self._lat2, bbox._lat2)
