@@ -1,6 +1,11 @@
 Open City Street Map
 --------------------
 
+modifications by @geraldhe:
+ * extend parameter "osmid" to "osmids" to create a map of multiple cities in one map
+ * added two options for a professional book-print: a "print bleed" (german: Beschnittzugabe) and a inner- and outer-margin
+ * extended multi-page-index to print multiple cities on one page (including the cities name in the header)
+
 ocitysmap generates a city street map, using the OpenStreetMap project's data
 and the MapNik map renderer. The generated maps are vector graphics images,
 including a street index and city grid.
