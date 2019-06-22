@@ -10,6 +10,7 @@ dbname=maposmatic
 # List of available stylesheets, each needs to be described by an eponymous
 # configuration section in this file.
 available_stylesheets: stylesheet_osm1, stylesheet_osm2
+available_overlays: scalebar, compass_rose, surveillance,
 
 # The default Mapnik stylesheet.
 [stylesheet_osm1]
@@ -22,3 +23,21 @@ path: /path/to/mapnik-osm/osm.xml
 name: AnotherOne
 description: Another OSM Stylesheet
 path: /path/to/another/osm.xml
+
+
+# Bundled overlay effect stylesheets
+[scalebar]
+name: Scale_Bar_overlay
+description: Scale bar
+path: internal:scalebar
+
+[compass_rose]
+name: Compass_Rose_overlay
+description: Compass Rose
+path: internal:compass_rose
+
+[surveillance]
+name: Surveillance_Overlay
+description: Surveillance Cameras
+path: internal:surveillance
+

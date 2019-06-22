@@ -100,7 +100,7 @@ class BoundingBox:
     """
     The BoundingBox class defines a geographic rectangle area specified by the
     coordinates of its top left and bottom right corners, in latitude and
-    longitude (4002 projection).
+    longitude (4326 projection).
     """
 
     def __init__(self, lat1, long1, lat2, long2):
@@ -161,6 +161,13 @@ class BoundingBox:
            on the top-left sides"""
         return BoundingBox(self._lat1 + dlat, self._long1 - dlong,
                            self._lat2 - dlat, self._long2 + dlong)
+
+    def create_expanded2(self, dlat, dlong, dlat2, dlong2):
+        """Return a new bbox dlat/dlong added on the top-left sides, dlat2/dlong2 on the buttom-right sides"""
+        return BoundingBox(self._lat1 + dlat, # add to top
+                            self._long1 - dlong, 
+                            self._lat2 - dlat2, # add to bottom
+                            self._long2 + dlong2)
 
     def merge(self, bbox):
         self._lat1 = max(self._lat1, bbox._lat1)

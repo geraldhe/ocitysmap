@@ -44,6 +44,7 @@ _sql_escape_unicode = lambda s: psycopg2.extensions.adapt(s)
 from . import commons
 import ocitysmap
 import codecs
+from natsort import natsort_keygen, ns
 
 import time
 
@@ -83,7 +84,7 @@ def resolveIcon(icon):
 class PoiIndex:
 
     def __init__(self, filename):
-        f = codecs.open(filename, "r", "utf-8")
+        f = codecs.open(filename, "r", "utf-8-sig")
         self._read_json(f)
         f.close()
 
@@ -105,6 +106,7 @@ class PoiIndex:
         try:
             j = json.load(f)
         except ValueError as e:
+            l.warning('invalid json in POI file: %s' % e)
             return False
 
         title = j['title']        
@@ -114,13 +116,15 @@ class PoiIndex:
         for cat in j['nodes']:
             c = commons.PoiIndexCategory(cat['text'], color=cat['color'], icon=cat['icon'])
             for node in cat['nodes']:
-                c.items.append(
-                    commons.PoiIndexItem(node['text'],
-                                         ocitysmap.coords.Point(float(node['lat']),
-                                                                float(node['lon'])),
-                                         icon = node['icon']));
-            self._categories.append(c)
-
+                try:
+                    c.items.append(
+                        commons.PoiIndexItem(node['text'],
+                                             ocitysmap.coords.Point(float(node['lat']),
+                                                                    float(node['lon'])),
+                                             icon = node['icon']));
+                    self._categories.append(c)
+                except:
+                    pass
         return True        
 
     def write_to_csv(self, title, output_filename):
@@ -305,24 +309,25 @@ class StreetIndex:
         try:
             sorted_sl = sorted([(self._i18n.user_readable_street(name),
                                  linestring) for name,linestring in sl],
-                               key = cmp_to_key(self._my_cmp))
+                               key = natsort_keygen(alg=ns.LOCALE|ns.IGNORECASE, key=lambda street: street[0]))
         finally:
             locale.setlocale(locale.LC_COLLATE, prev_locale)
 
         result = []
         current_category = None
-        NUMBER_LIST = [str(i) for i in range(10)]
         for street_name, linestring in sorted_sl:
             # Create new category if needed
-            if (not current_category
-               or (not self._i18n.first_letter_equal(street_name[0],
-                                                     current_category.name)
-                   and (current_category.name != commons.NUMBER_CATEGORY_NAME
-                        or street_name[0] not in NUMBER_LIST))):
-                if street_name[0] in NUMBER_LIST:
-                    cat_name = commons.NUMBER_CATEGORY_NAME
-                else:
-                    cat_name = self._i18n.upper_unaccent_string(street_name[0])
+            cat_name = ""
+            for c in street_name:
+                if c.isdigit():
+                    cat_name = self._i18n.number_category_name()
+                    break
+                if c.isalpha():
+                    cat_name = self._i18n.upper_unaccent_string(c)
+                    if cat_name != "":
+                        break
+
+            if (not current_category or current_category.name != cat_name):
                 current_category = commons.StreetIndexCategory(cat_name)
                 result.append(current_category)
 
@@ -357,14 +362,14 @@ class StreetIndex:
         """
 
         cursor = db.cursor()
-        l.info("Getting streets...")
+        # l.debug("Getting streets...")
 
         # PostGIS >= 1.5.0 for this to work:
         query = """
 select name,
        --- street_kind, -- only when group by is: group by name, street_kind
        st_astext(st_transform(ST_LongestLine(street_path, street_path),
-                              4002)) as longest_linestring
+                              4326)) as longest_linestring
 from
   (select name,
           -- highway as street_kind, -- only when group by name, street_kind
@@ -375,7 +380,7 @@ from
                 and st_intersects(%%(way)s, %(wkb_limits)s)
    group by name ---, street_kind -- (optional)
    order by name) as foo;
-""" % dict(wkb_limits = ("st_transform(ST_GeomFromText('%s', 4002), 3857)"
+""" % dict(wkb_limits = ("st_transform(ST_GeomFromText('%s', 4326), 3857)"
                          % (polygon_wkt,)))
 
         # l.debug("Street query (nogrid): %s" % query)
@@ -391,7 +396,7 @@ from
             cursor.execute(query % {'way':'st_buffer(way, 0)'})
         sl = cursor.fetchall()
 
-        l.debug("Got %d streets." % len(sl))
+        #l.debug("Got %d streets." % len(sl))
 
         return self._convert_street_index(sl)
 
@@ -413,7 +418,7 @@ from
 
         result = []
         for catname, db_amenity, label in self._get_selected_amenities():
-            l.info("Getting amenities for %s/%s..." % (catname, db_amenity))
+            # l.debug("Getting amenities for %s/%s..." % (catname, db_amenity))
 
             # Get the current IndexCategory object, or create one if
             # different than previous
@@ -427,7 +432,7 @@ from
             query = """
 select amenity_name,
        st_astext(st_transform(ST_LongestLine(amenity_contour, amenity_contour),
-                              4002)) as longest_linestring
+                              4326)) as longest_linestring
 from (
        select name as amenity_name,
               st_intersection(%(wkb_limits)s, %%(way)s) as amenity_contour
@@ -443,7 +448,7 @@ from (
      ) as foo
 order by amenity_name""" \
                 % {'amenity': str(_sql_escape_unicode(db_amenity)),
-                   'wkb_limits': ("st_transform(ST_GeomFromText('%s' , 4002), 3857)"
+                   'wkb_limits': ("st_transform(ST_GeomFromText('%s' , 4326), 3857)"
                                   % (polygon_wkt,))}
 
             # l.debug("Amenity query for for %s/%s (nogrid): %s" \
@@ -476,8 +481,8 @@ order by amenity_name""" \
                                                                       endpoint2,
                                                                       self._page_number))
 
-            l.debug("Got %d amenities for %s/%s."
-                    % (len(current_category.items), catname, db_amenity))
+            # l.debug("Got %d amenities for %s/%s."
+            #         % (len(current_category.items), catname, db_amenity))
 
         return [category for category in result if category.items]
 
@@ -504,7 +509,7 @@ order by amenity_name""" \
         query = """
 select village_name,
        st_astext(st_transform(ST_LongestLine(village_contour, village_contour),
-                              4002)) as longest_linestring
+                              4326)) as longest_linestring
 from (
        select name as village_name,
               st_intersection(%(wkb_limits)s, %%(way)s) as village_contour
@@ -516,7 +521,7 @@ from (
              and ST_intersects(%%(way)s, %(wkb_limits)s)
      ) as foo
 order by village_name""" \
-            % {'wkb_limits': ("st_transform(ST_GeomFromText('%s', 4002), 3857)"
+            % {'wkb_limits': ("st_transform(ST_GeomFromText('%s', 4326), 3857)"
                               % (polygon_wkt,))}
 
 
@@ -551,8 +556,8 @@ order by village_name""" \
                                                                   endpoint2,
                                                                   self._page_number))
 
-        l.debug("Got %d villages for %s."
-                % (len(current_category.items), 'Villages'))
+        # l.debug("Got %d villages for %s."
+        #         % (len(current_category.items), 'Villages'))
 
         return [category for category in result if category.items]
 

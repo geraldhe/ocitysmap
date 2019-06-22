@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+ # -*- coding: utf-8 -*-
 
 # ocitysmap, city map and street index generator from OpenStreetMap data
 # Copyright (C) 2010  David Decotigny
@@ -40,6 +40,7 @@ assert mapnik.mapnik_version() >= 300000, \
     "Mapnik module version %s is too old, see ocitysmap's INSTALL " \
     "for more details." % mapnik.mapnik_version_string()
 import math
+from copy import copy
 
 from ocitysmap.layoutlib import commons
 import ocitysmap
@@ -48,28 +49,16 @@ from ocitysmap.indexlib.renderer import StreetIndexRenderer, PoiIndexRenderer
 from indexlib.indexer import StreetIndex, PoiIndex
 from indexlib.commons import IndexDoesNotFitError, IndexEmptyError
 import draw_utils
-import umap_utils
 from ocitysmap.maplib.map_canvas import MapCanvas
+from ocitysmap.stylelib import GpxStylesheet, UmapStylesheet
+
 
 from colour import Color
 
 import time
 
-import qrcode
-import qrcode.image.svg
-import sys
-
-try:
-    from StringIO import StringIO
-except ImportError:
-    from io import StringIO
 
 LOG = logging.getLogger('ocitysmap')
-
-class SimpleStylesheet:
-    def __init__(self, path):
-        self.path = os.path.abspath(os.path.join('/home/maposmatic/maposmatic/media', path))
-
 
 
 class SinglePageRenderer(Renderer):
@@ -81,7 +70,6 @@ class SinglePageRenderer(Renderer):
 
     name = 'generic_single_page'
     description = 'A generic full-page layout with or without index.'
-    qrcode_text = ''
 
     MAX_INDEX_OCCUPATION_RATIO = 1/3.
 
@@ -96,10 +84,10 @@ class SinglePageRenderer(Renderer):
            index_position (str): None or 'side' (index on side),
               'bottom' (index at bottom).
         """
+
         Renderer.__init__(self, db, rc, tmpdir, dpi)
 
         # Prepare the index
-
         if rc.poi_file:
             self.street_index = PoiIndex(rc.poi_file)
         else:
@@ -114,7 +102,12 @@ class SinglePageRenderer(Renderer):
         self._grid_legend_margin_pt = \
             min(Renderer.GRID_LEGEND_MARGIN_RATIO * self.paper_width_pt,
                 Renderer.GRID_LEGEND_MARGIN_RATIO * self.paper_height_pt)
-        self._title_margin_pt = 0.05 * self.paper_height_pt
+
+        if self.rc.title:
+            self._title_margin_pt = 0.05 * self.paper_height_pt
+        else:
+            self._title_margin_pt = 0
+
         self._copyright_margin_pt = 0.03 * self.paper_height_pt
 
         self._usable_area_width_pt = (self.paper_width_pt -
@@ -177,10 +170,21 @@ class SinglePageRenderer(Renderer):
             dpi,
             rc.osmid != None )
 
-        # Prepare map overlay
+        # Prepare overlay styles for uploaded files
+        self._overlays = copy(self.rc.overlays)
+
+        # generate style file for GPX file
+        if self.rc.gpx_file:
+            self._overlays.append(GpxStylesheet(self.rc.gpx_file, self.tmpdir))
+
+        # denormalize UMAP json to geojson, then create style for it
+        if self.rc.umap_file:
+            self._overlays.append(UmapStylesheet(self.rc.umap_file, self.tmpdir))
+
+        # Prepare map overlays
         self._overlay_canvases = []
         self._overlay_effects  = []
-        for overlay in self.rc.overlays:
+        for overlay in self._overlays:
             path = overlay.path.strip()
             if path.startswith('internal:'):
                 self._overlay_effects.append(path.lstrip('internal:'))
@@ -191,15 +195,19 @@ class SinglePageRenderer(Renderer):
                                               float(self._map_coords[3]),  # H
                                               dpi))
 
+        if self.rc.poi_file:
+            self._overlay_effects.append('poi_markers')
+
         # Prepare the grid
         self.grid = self._create_grid(self._map_canvas, dpi)
+        if index_position:
+            self._apply_grid(self.grid, self._map_canvas)
 
         # Update the street_index to reflect the grid's actual position
         if self.grid and self.street_index:
             self.street_index.apply_grid(self.grid)
 
-        # Dump the CSV street index
-        if self.street_index:
+            # Dump the CSV street index
             self.street_index.write_to_csv(rc.title, '%s.csv' % file_prefix)
 
         # Commit the internal rendering stack of the map
@@ -332,6 +340,7 @@ class SinglePageRenderer(Renderer):
 
         # Draw the title
         ctx.save()
+        ctx.set_line_width(1)
         ctx.rectangle(0, 0, w_dots, h_dots)
         ctx.stroke()
         ctx.translate(0.4*h_dots + logo_width2,
@@ -365,7 +374,7 @@ class SinglePageRenderer(Renderer):
             annotations = []
             if self.rc.stylesheet.annotation != '':
                 annotations.append(self.rc.stylesheet.annotation)
-            for overlay in self.rc.overlays:
+            for overlay in self._overlays:
                 if overlay.annotation != '':
                     annotations.append(overlay.annotation)
             if len(annotations) > 0:
@@ -531,7 +540,7 @@ class SinglePageRenderer(Renderer):
 
         # Draw the rescaled Map
         ctx.save()
-        scale_factor = dpi / 72
+        scale_factor = int(dpi / 72)
         rendered_map = self._map_canvas.get_rendered_map()
         LOG.debug('Map:')
         LOG.debug('Mapnik scale: 1/%f' % rendered_map.scale_denominator())
@@ -547,29 +556,31 @@ class SinglePageRenderer(Renderer):
             mapnik.render(rendered_overlay, ctx, scale_factor, 0, 0)
             ctx.restore()
 
-        # Draw a rectangle around the map
-        ctx.save()
-        ctx.set_line_width(self.dpi/72.0)
-        ctx.rectangle(0, 0, map_coords_dots[2], map_coords_dots[3])
-        ctx.stroke()
+        # Place the vertical and horizontal square labels
+        if self.grid and self._index_area:
+            self._draw_labels(ctx, self.grid,
+                              map_coords_dots[2],
+                              map_coords_dots[3],
+                              commons.convert_pt_to_dots(self._grid_legend_margin_pt,
+                                                         dpi))
         ctx.restore()
 
-        # Place the vertical and horizontal square labels
-        self._draw_labels(ctx, self.grid,
-                          map_coords_dots[2],
-                          map_coords_dots[3],
-                          commons.convert_pt_to_dots(self._grid_legend_margin_pt,
-                                                   dpi))
+        # Draw a rectangle around the map
+        ctx.save()
+        ctx.set_line_width(1)
+        ctx.rectangle(map_coords_dots[0], map_coords_dots[1], map_coords_dots[2], map_coords_dots[3])
+        ctx.stroke()
         ctx.restore()
 
         ##
         ## Draw the title
         ##
-        ctx.save()
-        ctx.translate(safe_margin_dots, safe_margin_dots)
-        self._draw_title(ctx, usable_area_width_dots,
-                         title_margin_dots, 'Droid Sans Bold')
-        ctx.restore()
+        if self.rc.title:
+            ctx.save()
+            ctx.translate(safe_margin_dots, safe_margin_dots)
+            self._draw_title(ctx, usable_area_width_dots,
+                             title_margin_dots, 'Droid Sans Bold')
+            ctx.restore()
 
         ##
         ## Draw the index, when applicable
@@ -594,6 +605,7 @@ class SinglePageRenderer(Renderer):
 
             # Also draw a rectangle
             ctx.save()
+            ctx.set_line_width(1)
             ctx.rectangle(commons.convert_pt_to_dots(self._index_area.x, dpi),
                           commons.convert_pt_to_dots(self._index_area.y, dpi),
                           commons.convert_pt_to_dots(self._index_area.w, dpi),
@@ -618,76 +630,6 @@ class SinglePageRenderer(Renderer):
                                     osm_date=osm_date)
         ctx.restore()
 
-        ##
-        ## Draw the creator notice
-        ##
-        if self.rc.poi_file:
-            ctx.save()
-
-            # Move to the right position
-            ctx.translate(safe_margin_dots + usable_area_width_dots/2.3,
-                          ( safe_margin_dots + title_margin_dots
-                            + usable_area_height_dots
-                            + copyright_margin_dots/4. ) )
-    
-            # Draw the copyright notice
-            self._draw_creator_notice(ctx, usable_area_width_dots,
-                                        copyright_margin_dots,
-                                        osm_date=osm_date)
-            ctx.restore()
-
-
-        # Draw compass rose
-        # TODO: proper positioning/scaling, move to abstract renderer
-        ctx.save()
-        ctx.translate(safe_margin_dots + title_margin_dots * 0.5 , 
-                      safe_margin_dots + title_margin_dots * 1.5)
-        rose_grp, rose_width = self._get_compass_rose(ctx, title_margin_dots)
-        ctx.set_source(rose_grp)
-        ctx.paint_with_alpha(0.75)
-        ctx.stroke()
-        ctx.restore()
-
-        # Draw QR code
-        if self.qrcode_text:
-          ctx.save()
-          ctx.translate(safe_margin_dots + title_margin_dots * 0.5, usable_area_height_dots) 
-          img = qrcode.make(self.qrcode_text, image_factory=qrcode.image.svg.SvgPathFillImage)
-          svgstr = StringIO.StringIO()
-          img.save(svgstr);
-          rsvg = Rsvg.Hanlde()
-          svg = rsvg.new_from_data(svgstr.getvalue())
-          svgstr.close()
-          ctx.move_to(0, 0)
-          factor = 200 / svg.props.height
-          ctx.scale(factor, factor)
-          svg.render_cairo(ctx)
-          ctx.restore()
-
-
-        # Place "you are here" circle and markers from POI file
-        if self.rc.poi_file:
-            # place POI markers on map canvas
-            n = 0
-            for category in self.street_index.categories:
-                for poi in category.items:
-                    n = n + 1
-                    lat, lon = poi.endpoint1.get_latlong()
-                    self._marker(category.color, str(n), lat, lon, ctx, dpi)
-
-            # place "you are here" circle if coordinates are given
-            if self.street_index.lat != False:
-                x,y = self._latlon2xy(self.street_index.lat, self.street_index.lon, dpi)
-                ctx.save()
-                ctx.translate(x, y)
-                ctx.set_source_rgba(1, 0, 0, 0.8)
-                ctx.set_line_width(10)
-                ctx.arc(0, 0, 50, 0, 2*math.pi)
-                ctx.stroke_preserve()
-                ctx.set_source_rgba(1, 0, 0, 0.2)
-                ctx.fill()
-                ctx.restore()
-
         # apply effect overlays
         ctx.save()
         ctx.rectangle(map_coords_dots[0], map_coords_dots[1], map_coords_dots[2], map_coords_dots[3])
@@ -697,75 +639,7 @@ class SinglePageRenderer(Renderer):
           self.render_plugin(effect, ctx)
         ctx.restore()
 
-        # apply GPX track
-        GPX_filename = None
-        if self.rc.gpx_file:
-           template_dir = os.path.realpath(
-               os.path.join(
-                   os.path.dirname(__file__),
-                   '../../templates/gpx'))
-           template_file = os.path.join(template_dir, 'template.xml')
-           GPX_filename = os.path.join(self.tmpdir, 'gpx_style.xml')
-           tmpfile = open(GPX_filename, 'w')
 
-           with open(template_file, 'r') as style_template:
-               tmpstyle = Template(style_template.read())
-               tmpfile.write(tmpstyle.substitute(gpxfile = self.rc.gpx_file, svgdir = template_dir))
-
-           tmpfile.close()
-           
-           gpx_canvas = MapCanvas(SimpleStylesheet(GPX_filename),
-                                  self.rc.bounding_box,
-                                  float(self._map_coords[2]),  # W
-                                  float(self._map_coords[3]),  # H
-                                  dpi)
-
-           ctx.save()
-           ctx.translate(map_coords_dots[0], map_coords_dots[1])
-           gpx_overlay = gpx_canvas.get_rendered_map()
-           gpx_overlay.base = template_dir
-           mapnik.render(gpx_overlay, ctx, scale_factor, 0, 0)
-           ctx.restore()
-
-        # apply UMAP file
-        umap_filename = None
-        if self.rc.umap_file:
-           template_dir = os.path.realpath(
-               os.path.join(
-                   os.path.dirname(__file__),
-                   '../../templates/umap'))
-
-           json_filename = os.path.join(self.tmpdir, 'geo.json')
-           json_tmpfile = open(json_filename, 'w')
-           json_tmpfile.write(umap_utils.umap_preprocess(self.rc.umap_file, self.tmpdir))
-           json_tmpfile.close()
-
-           template_file = os.path.join(template_dir, 'template.xml')
-           style_filename = os.path.join(self.tmpdir, 'umap_style.xml')
-           style_tmpfile = open(style_filename, 'w')
-
-           with open(template_file, 'r') as style_template:
-               tmpstyle = Template(style_template.read())
-               style_tmpfile.write(
-                   tmpstyle.substitute(
-                       umapfile = json_filename,
-                       basedir  = template_dir
-                   ))
-
-           style_tmpfile.close()
-
-           umap_canvas = MapCanvas(SimpleStylesheet(style_filename),
-                                  self.rc.bounding_box,
-                                  float(self._map_coords[2]),  # W
-                                  float(self._map_coords[3]),  # H
-                                  dpi)
-
-           ctx.save()
-           ctx.translate(map_coords_dots[0], map_coords_dots[1])
-           umap_overlay = umap_canvas.get_rendered_map()
-           umap_overlay.base = template_dir
-           mapnik.render(umap_overlay, ctx, scale_factor, 0, 0)
-           ctx.restore()
 
         cairo_surface.flush()
 
@@ -824,6 +698,15 @@ class SinglePageRenderer(Renderer):
 
         LOG.debug('Best fit is %.1fx%.1fcm.' % (paper_width_mm/10., paper_height_mm/10.))
 
+        # TODO make min. width / height configurable
+        if paper_width_mm < 100:
+            paper_height_mm = paper_height_mm * 100 / paper_width_mm
+            paper_width_mm = 100
+        if paper_height_mm < 100:
+            paper_width_mm = paper_width_mm * 100 / paper_height_mm
+            paper_height_mm = 100
+
+
         # Test both portrait and landscape orientations when checking for paper
         # sizes.
         valid_sizes = []
@@ -853,107 +736,7 @@ class SinglePageRenderer(Renderer):
         return valid_sizes
 
 
-class SinglePageRendererNoIndex(SinglePageRenderer):
 
-    name = 'plain'
-    description = 'Full-page layout without index.'
-
-    def __init__(self, db, rc, tmpdir, dpi, file_prefix):
-        """
-        Create the renderer.
-
-        Args:
-           rc (RenderingConfiguration): rendering parameters.
-           tmpdir (os.path): Path to a temp dir that can hold temp files.
-        """
-        SinglePageRenderer.__init__(self, db, rc, tmpdir, dpi, file_prefix, None)
-
-
-    @staticmethod
-    def get_compatible_paper_sizes(bounding_box,
-                                   scale=Renderer.DEFAULT_SCALE):
-        """Returns a list of the compatible paper sizes for the given bounding
-        box. The list is sorted, smaller papers first, and a "custom" paper
-        matching the dimensions of the bounding box is added at the end.
-
-        Args:
-            bounding_box (coords.BoundingBox): the map geographic bounding box.
-            scale (int): minimum mapnik scale of the map.
-
-        Returns a list of tuples (paper name, width in mm, height in
-        mm, portrait_ok, landscape_ok). Paper sizes are represented in
-        portrait mode.
-        """
-        return SinglePageRenderer._generic_get_compatible_paper_sizes(
-            bounding_box, scale, None)
-
-
-class SinglePageRendererIndexOnSide(SinglePageRenderer):
-
-    name = 'single_page_index_side'
-    description = 'Full-page layout with the index on the side.'
-
-    def __init__(self, db, rc, tmpdir, dpi, file_prefix):
-        """
-        Create the renderer.
-
-        Args:
-           rc (RenderingConfiguration): rendering parameters.
-           tmpdir (os.path): Path to a temp dir that can hold temp files.
-        """
-        SinglePageRenderer.__init__(self, db, rc, tmpdir, dpi, file_prefix, 'side')
-
-    @staticmethod
-    def get_compatible_paper_sizes(bounding_box,
-                                   scale=Renderer.DEFAULT_SCALE):
-        """Returns a list of the compatible paper sizes for the given bounding
-        box. The list is sorted, smaller papers first, and a "custom" paper
-        matching the dimensions of the bounding box is added at the end.
-
-        Args:
-            bounding_box (coords.BoundingBox): the map geographic bounding box.
-            scale (int): minimum mapnik scale of the map.
-
-        Returns a list of tuples (paper name, width in mm, height in
-        mm, portrait_ok, landscape_ok). Paper sizes are represented in
-        portrait mode.
-        """
-        return SinglePageRenderer._generic_get_compatible_paper_sizes(
-            bounding_box, scale, 'side')
-
-
-class SinglePageRendererIndexBottom(SinglePageRenderer):
-
-    name = 'single_page_index_bottom'
-    description = 'Full-page layout with the index at the bottom.'
-
-    def __init__(self, db, rc, tmpdir, dpi, file_prefix):
-        """
-        Create the renderer.
-
-        Args:
-           rc (RenderingConfiguration): rendering parameters.
-           tmpdir (os.path): Path to a temp dir that can hold temp files.
-        """
-        SinglePageRenderer.__init__(self, db, rc, tmpdir, dpi, file_prefix, 'bottom')
-
-    @staticmethod
-    def get_compatible_paper_sizes(bounding_box,
-                                   scale=Renderer.DEFAULT_SCALE):
-        """Returns a list of the compatible paper sizes for the given bounding
-        box. The list is sorted, smaller papers first, and a "custom" paper
-        matching the dimensions of the bounding box is added at the end.
-
-        Args:
-            bounding_box (coords.BoundingBox): the map geographic bounding box.
-            scale (int): minimum mapnik scale of the map.
-
-        Returns a list of tuples (paper name, width in mm, height in
-        mm, portrait_ok, landscape_ok). Paper sizes are represented in
-        portrait mode.
-        """
-        return SinglePageRenderer._generic_get_compatible_paper_sizes(
-            bounding_box, scale, 'bottom')
 
 
 if __name__ == '__main__':

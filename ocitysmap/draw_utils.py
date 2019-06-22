@@ -95,7 +95,7 @@ def draw_text_center(ctx, pc, layout, fascent, fheight,
         pango_alignment (enum): pango.ALIGN_ constant value
 
     Results:
-        A 3-uple left_x, baseline_y, right_x of the text rendered (cairo units)
+        A 3-tuple left_x, baseline_y, right_x of the text rendered (cairo units)
     """
     txt_width, txt_height = draw_text(ctx, pc, layout, fascent, fheight,
                                       baseline_x, baseline_y, text,
@@ -141,6 +141,31 @@ def draw_simpletext_center(ctx, text, x, y):
     """
     ctx.save()
     xb, yb, tw, th, xa, ya = ctx.text_extents(text)
+    ctx.move_to(x - tw/2.0 - xb, y - yb/2.0)
+    ctx.show_text(text)
+    ctx.stroke()
+    ctx.restore()
+
+def draw_halotext_center(ctx, text, x, y):
+    """
+    Draw the given text centered at x,y, with a halo below
+
+    Args:
+       ctx (cairo.Context): The cairo context to use to draw.
+       text (str): the text to draw.
+       x,y (numbers): Location of the center (cairo units).
+    """
+    xb, yb, tw, th, xa, ya = ctx.text_extents(text)
+    ctx.save()
+    ctx.move_to(x - tw/2.0 - xb, y - yb/2.0)
+    ctx.set_line_width(10);
+    ctx.set_source_rgba(1, 1, 1, 0.5);
+    ctx.set_line_join(cairo.LINE_JOIN_ROUND)
+    ctx.text_path(text)
+    ctx.stroke()
+    ctx.restore()
+
+    ctx.save()
     ctx.move_to(x - tw/2.0 - xb, y - yb/2.0)
     ctx.show_text(text)
     ctx.stroke()
@@ -223,33 +248,54 @@ def draw_text_adjusted(ctx, text, x, y, width, height, max_char_number=None,
     PangoCairo.show_layout(ctx, layout)
     ctx.restore()
 
-def render_page_number(ctx, page_number,
-                       usable_area_width_pt, usable_area_height_pt, margin_pt,
-                       transparent_background = True):
+def render_page_number(ctx, page_number, usable_area_width_pt, usable_area_height_pt,
+                       margin_inside_pt, margin_outside_pt, margin_top_bottom_pt,
+                       print_bleed_pt, transparent_background = True,):
     """
     Render page number
     """
     ctx.save()
     x_offset = 0
-    if page_number % 2:
+    if page_number % 2: # print at the right side of the page
         x_offset += commons.convert_pt_to_dots(usable_area_width_pt)\
-                  - commons.convert_pt_to_dots(margin_pt)
+                  - commons.convert_pt_to_dots(print_bleed_pt + margin_outside_pt if page_number % 2 else margin_inside_pt)
     y_offset = commons.convert_pt_to_dots(usable_area_height_pt)\
-             - commons.convert_pt_to_dots(margin_pt)
+             - commons.convert_pt_to_dots(margin_top_bottom_pt + print_bleed_pt)
     ctx.translate(x_offset, y_offset)
 
     if transparent_background:
         ctx.set_source_rgba(1, 1, 1, 0.6)
     else:
         ctx.set_source_rgba(0.8, 0.8, 0.8, 0.6)
-    ctx.rectangle(0, 0, commons.convert_pt_to_dots(margin_pt),
-                  commons.convert_pt_to_dots(margin_pt))
+    ctx.rectangle(0, 0, commons.convert_pt_to_dots(print_bleed_pt + (margin_inside_pt if page_number % 2 else margin_outside_pt)),
+                  commons.convert_pt_to_dots(print_bleed_pt + margin_top_bottom_pt))
     ctx.fill()
 
     ctx.set_source_rgba(0, 0, 0, 1)
-    x_offset = commons.convert_pt_to_dots(margin_pt)/2
-    y_offset = commons.convert_pt_to_dots(margin_pt)/2
+    x_offset = commons.convert_pt_to_dots(margin_outside_pt)/2 + (0 if page_number % 2 else commons.convert_pt_to_dots(print_bleed_pt))
+    y_offset = commons.convert_pt_to_dots(margin_top_bottom_pt)/2
     ctx.translate(x_offset, y_offset)
     draw_simpletext_center(ctx, str(page_number), 0, 0)
     ctx.restore()
+
+
+
+def begin_internal_link(ctx, target):
+    try: # tag_begin() only available starting with PyCairo 1.18.0
+        ctx.tag_begin(cairo.TAG_LINK, "dest='%s'" % target)
+    except Exception:
+        pass
+
+def end_link(ctx):
+    try: # tag_end() only available starting with PyCairo 1.18.0
+        ctx.tag_end(cairo.TAG_LINK)
+    except Exception:
+        pass
+
+def anchor(ctx, name):
+    try: # tag_begin() only available starting with PyCairo 1.18.0
+        ctx.tag_begin(cairo.TAG_DEST, "name='%s'" % name)
+        ctx.tag_end(cairo.TAG_DEST)
+    except Exception:
+        pass
 

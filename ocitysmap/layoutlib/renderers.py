@@ -1,14 +1,16 @@
 # -*- coding: utf-8 -*-
 
-from . import single_page_renderers
-from . import multi_page_renderer
+from ocitysmap.layoutlib.single_page_renderer.no_index import SinglePageRendererNoIndex
+from ocitysmap.layoutlib.single_page_renderer.side_index import SinglePageRendererIndexOnSide
+from ocitysmap.layoutlib.single_page_renderer.bottom_index import SinglePageRendererIndexBottom
+from ocitysmap.layoutlib.multi_page_renderer import MultiPageRenderer
 
 # The renderers registry
 _RENDERERS = [
-    single_page_renderers.SinglePageRendererNoIndex,
-    single_page_renderers.SinglePageRendererIndexBottom,
-    single_page_renderers.SinglePageRendererIndexOnSide,
-    multi_page_renderer.MultiPageRenderer,
+    SinglePageRendererNoIndex,
+    SinglePageRendererIndexOnSide,
+    SinglePageRendererIndexBottom,
+    MultiPageRenderer,
     ]
 
 def get_renderer_class_by_name(name):

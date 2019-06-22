@@ -67,9 +67,9 @@ def main():
     parser.add_option('-t', '--title', dest='output_title', metavar='TITLE',
                       help='specify the title displayed in the output files.',
                       default="My Map")
-    parser.add_option('--osmid', dest='osmid', metavar='OSMID',
-                      help='OSM ID representing the polygon of the city '
-                      'to render.', type="int"),
+    parser.add_option('--osmids', dest='osmids', metavar='OSMIDS',
+                      help='OSM IDs representing the polygon of the cities '
+                      'to render.', type="string"),
     parser.add_option('-b', '--bounding-box', dest='bbox',  nargs=2,
                       metavar='LAT1,LON1 LAT2,LON2',
                       help='bounding box (EPSG: 4326).')
@@ -118,17 +118,17 @@ def main():
 
     # Make sure either -b or -c is given
     optcnt = 0
-    for var in options.bbox, options.osmid:
+    for var in options.bbox, options.osmids:
         if var:
             optcnt += 1
 
     if optcnt == 0:
         parser.error("One of --bounding-box "
-                     "or --osmid is mandatory")
+                     "or --osmids is mandatory")
 
     if optcnt > 1:
-        parser.error("Options --bounding-box "
-                     "or --osmid are exclusive")
+        parser.error("Options --bounding-box, "
+                     "or --osmids are exclusive")
 
     # Parse config file and instanciate main object
     mapper = ocitysmap.OCitySMap(
@@ -136,6 +136,7 @@ def main():
 
     # Parse bounding box arguments when given
     bbox = None
+    osmids = None
     if options.bbox:
         try:
             bbox = BoundingBox.parse_latlon_strtuple(options.bbox)
@@ -149,13 +150,14 @@ def main():
         if lon1 == lon2:
             parser.error('Same longitude in bounding box corners')
 
-    # Parse OSM id when given
-    if options.osmid:
+    # Parse OSM ids when given
+    if options.osmids:
         try:
-            bbox  = BoundingBox.parse_wkt(
-                mapper.get_geographic_info(options.osmid)[0])
+            osmids = list(map(int, options.osmids.split(",")))
+            bbox = BoundingBox.parse_wkt(
+                    mapper.get_geographic_info(osmids)[0])
         except LookupError:
-            parser.error('No such OSM id: %d' % options.osmid)
+            parser.error('No such OSM id: %d' % options.osmids)
 
     # Parse stylesheet (defaults to 1st one)
     if options.stylesheet is None:
@@ -245,7 +247,7 @@ def main():
     # Prepare the rendering config
     rc              = ocitysmap.RenderingConfiguration()
     rc.title        = options.output_title
-    rc.osmid        = options.osmid or None # Force to None if absent
+    rc.osmids       = osmids or None # Force to None if absent
     rc.bounding_box = bbox
     rc.language     = options.language
     rc.stylesheet   = stylesheet

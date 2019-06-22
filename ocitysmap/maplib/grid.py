@@ -49,6 +49,7 @@ class Grid:
 
         self._bbox = bounding_box
         self.rtl   = rtl
+        self.scale = scale
         self._height_m, self._width_m = bounding_box.spheric_sizes()
 
         l.info('Laying out grid on %.1fx%.1fm area...' %
@@ -81,7 +82,6 @@ class Grid:
         # we don't want to have too long grid identifiers, so we make sure
         # to not have more than 26 (A-Z) horizontal grid squares
         while self.horiz_count > 25 :
-            l.info("count: %d" % self.horiz_count)
             if significand == 1:
                 significand = 2
             elif significand == 2:
@@ -120,7 +120,7 @@ class Grid:
         self.vertical_labels = list(map(self._gen_vertical_square_label,
                                    range(int(math.ceil(self.vert_count)))))
 
-        l.info('Using %sx%sm grid (%sx%s squares).' %
+        l.info('Using %dx%dm grid (%.2fx%.2f squares).' %
                (self.grid_size_m, self.grid_size_m,
                 self.horiz_count, self.vert_count))
 
@@ -135,9 +135,10 @@ class Grid:
         """
 
         # Use a slightly larger bounding box for the shape file to accomodate
-        # for the small imprecisions of re-projecting.
-        l.info("Generating shapefile")
-        g = shapes.LineShapeFile(self._bbox.create_expanded(0.001, 0.001),
+        # for the small imprecisions of re-projecting and the extra gray margin
+        # area in multi page maps
+        l.debug("Generating shapefile")
+        g = shapes.LineShapeFile(self._bbox.create_expanded(self.scale/6000000, self.scale/6000000),
                                  filename, 'grid')
         for x in self._vertical_lines:
             g.add_vert_line(x)

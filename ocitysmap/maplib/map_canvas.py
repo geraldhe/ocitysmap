@@ -103,7 +103,7 @@ class MapCanvas:
         # Added shapes to render
         self._shapes = []
 
-        l.info('MapCanvas rendering map on %dx%dpx.' % (g_width, g_height))
+        l.debug('MapCanvas rendering map on %dx%dpx.' % (g_width, g_height))
 
     def _fix_bbox_ratio(self, off_x, off_y, width, height, dest_ratio):
         """Adjusts the area expressed by its origin's offset and its size to
@@ -139,8 +139,8 @@ class MapCanvas:
         self._shapes.append({'shape_file': shape_file,
                              'color': col,
                              'line_width': line_width})
-        l.debug('Added shape file %s to map canvas as layer %s.' %
-                (shape_file.get_filepath(), shape_file.get_layer_name()))
+        #l.debug('Added shape file %s to map canvas as layer %s.' %
+        #        (shape_file.get_filepath(), shape_file.get_layer_name()))
 
     def render(self):
         """Render the map in memory with all the added shapes. The Mapnik Map
@@ -169,7 +169,7 @@ class MapCanvas:
         return scale
 
     def _render_shape_file(self, shape_file, color, line_width):
-        l.info("render_shape_file")
+        #l.debug("render_shape_file")
         shape_file.flush()
 
         shpid = os.path.basename(shape_file.get_filepath())
@@ -206,7 +206,7 @@ class MapCanvas:
         return mapnik.Box2d(c0.x, c0.y, c1.x, c1.y)
 
     def _inverse_envelope(self, envelope):
-        """Inverse the given cartesian envelope (in 900913) back to a 4002
+        """Inverse the given cartesian envelope (in 3587) back to a 4326
         bounding box."""
         c0 = self._proj.inverse(mapnik.Coord(envelope.minx, envelope.miny))
         c1 = self._proj.inverse(mapnik.Coord(envelope.maxx, envelope.maxy))

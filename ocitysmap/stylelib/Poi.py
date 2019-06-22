@@ -22,18 +22,16 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-# PT/metrics conversion routines
-PT_PER_INCH = 72.0
-MM_PER_INCH = 25.4
+from . import Stylesheet
 
-def convert_pt_to_dots(pt, dpi = PT_PER_INCH):
-    return float(pt * dpi) / PT_PER_INCH
+import logging
 
-def convert_mm_to_pt(mm):
-    return mm / MM_PER_INCH * PT_PER_INCH
+LOG = logging.getLogger('ocitysmap')
 
-def convert_mm_to_dots(mm, dpi = PT_PER_INCH):
-    return float(convert_mm_to_pt(mm) * dpi) / PT_PER_INCH
 
-def convert_pt_to_mm(pt):
-    return float(pt) * MM_PER_INCH / PT_PER_INCH
+class PoiStylesheet(Stylesheet):
+    def __init__(self, poi_file, tmpdir):
+        super().__init__()
+
+        self.name = "POI overlay"
+        self.path = "internal:poi_markers"

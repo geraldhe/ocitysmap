@@ -42,8 +42,6 @@ class IndexDoesNotFitError(Exception):
     graphical area, even after trying smaller font sizes."""
     pass
 
-NUMBER_CATEGORY_NAME = '0-9'
-
 class IndexCategory:
     """
     The IndexCategory represents a set of index items that belong to the same
@@ -83,6 +81,10 @@ class StreetIndexCategory(IndexCategory):
     def __init__(self, name, items=None, is_street=True):
         IndexCategory.__init__(self, name, items, is_street)
 
+    def label_drawing_height(self, layout):
+        layout.set_text(self.name, -1)
+        return float(layout.get_size()[1]) / Pango.SCALE
+
     def draw(self, rtl, ctx, pc, layout, fascent, fheight,
              baseline_x, baseline_y):
         """Draw this category header.
@@ -98,15 +100,21 @@ class StreetIndexCategory(IndexCategory):
             baseline_y (int): base Y axis position.
         """
 
+        # Bugfix: use real height (rect_height) of heading (could be multiple rows)
+        # instead of fheight
+        rect_height = self.label_drawing_height(layout)
+
         ctx.save()
         ctx.set_source_rgb(0.9, 0.9, 0.9)
         ctx.rectangle(baseline_x, baseline_y - fascent,
-                      layout.get_width() / Pango.SCALE, fheight)
+                      layout.get_width() / Pango.SCALE, rect_height)
         ctx.fill()
 
         ctx.set_source_rgb(0.0, 0.0, 0.0)
-        draw_utils.draw_text_center(ctx, pc, layout, fascent, fheight,
+        draw_utils.draw_text_center(ctx, pc, layout, fascent, rect_height,
                                     baseline_x, baseline_y, self.name)
+        # print("cat-head %d %d %d %d %s" % (fascent, rect_height,
+        #                             baseline_x, baseline_y, self.name))
         ctx.restore()
 
 
@@ -291,7 +299,7 @@ class StreetIndexItem(IndexItem):
 
         # In case of empty label, we don't draw the dots
         if self.label != '':
-            draw_utils.draw_dotted_line(ctx, max(fheight/12, 1),
+            draw_utils.draw_dotted_line(ctx, fheight/12,
                                         line_start + fheight/4, baseline_y,
                                         line_end - line_start - fheight/2)
         ctx.restore()

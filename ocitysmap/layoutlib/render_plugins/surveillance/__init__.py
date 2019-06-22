@@ -130,8 +130,8 @@ def _show_symbol(renderer, ctx, lat, lon, surveillance, symbol):
 
 
 def render(renderer, ctx):
-    query = """SELECT ST_Y(ST_TRANSFORM(way, 4002)) AS lat
-                    , ST_X(ST_TRANSFORM(way, 4002)) AS lon
+    query = """SELECT ST_Y(ST_TRANSFORM(way, 4326)) AS lat
+                    , ST_X(ST_TRANSFORM(way, 4326)) AS lon
                     , tags->'surveillance'      AS surveillance
                     , COALESCE(tags->'surveillance:type', 'camera') AS type
                     , tags->'camera:direction'  AS camera_direction
@@ -140,9 +140,9 @@ def render(renderer, ctx):
                     , tags->'height'            AS camera_height
                  FROM planet_osm_point
                 WHERE tags->'man_made' = 'surveillance'
-                  AND ST_CONTAINS(ST_TRANSFORM(ST_GeomFromText('%s', 4002), 3857), way)
-         UNION SELECT ST_Y(ST_TRANSFORM(way, 4002)) AS lat
-                    , ST_X(ST_TRANSFORM(way, 4002)) AS lon
+                  AND ST_CONTAINS(ST_TRANSFORM(ST_GeomFromText('%s', 4326), 3857), way)
+         UNION SELECT ST_Y(ST_TRANSFORM(way, 4326)) AS lat
+                    , ST_X(ST_TRANSFORM(way, 4326)) AS lon
                     , tags->'surveillance'      AS surveillance
                     , COALESCE(tags->'surveillance:type', 'camera') AS type
                     , tags->'camera:direction'  AS camera_direction
@@ -151,7 +151,7 @@ def render(renderer, ctx):
                     , tags->'height'            AS camera_height
                  FROM planet_osm_point
                 WHERE tags->'surveillance' IS NOT NULL
-                  AND ST_CONTAINS(ST_TRANSFORM(ST_GeomFromText('%s', 4002), 3857), way)
+                  AND ST_CONTAINS(ST_TRANSFORM(ST_GeomFromText('%s', 4326), 3857), way)
              """ % ( renderer.rc.polygon_wkt, renderer.rc.polygon_wkt)
 
     cursor = renderer.db.cursor()

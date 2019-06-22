@@ -90,7 +90,7 @@ msgstr "Copyright © %(year)d – a MapOSMatic/OCitySMap fejlesztői."
 msgid ""
 "Map data © %(year)d OpenStreetMap contributors (see http://osm.org/copyright)"
 msgstr ""
-"Térképadatok © %(year)d – OpenStreetMap.org and a szerkesztők (see http://osm.org/copyright)"
+"Térképadatok © %(year)d – OpenStreetMap.org and a szerkesztők (cc-by-sa)."
 
 #: ocitysmap/layoutlib/multi_page_renderer.py:596
 #: ocitysmap/layoutlib/single_page_renderers.py:380
@@ -126,3 +126,4 @@ msgstr ""
 #: ocitysmap/layoutlib/single_page_renderers.py:848
 msgid "Test gettext"
 msgstr "Test gettext"
+

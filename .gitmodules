@@ -4,3 +4,6 @@
 [submodule "templates/umap/maki"]
 	path = templates/umap/maki
 	url = https://github.com/mapbox/maki.git
+[submodule "templates/poi_markers/Font-Awesome-SVG-PNG"]
+	path = templates/poi_markers/Font-Awesome-SVG-PNG
+	url = https://github.com/encharm/Font-Awesome-SVG-PNG

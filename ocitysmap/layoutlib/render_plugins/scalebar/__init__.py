@@ -28,6 +28,9 @@ def render(renderer, ctx):
 
     dots = map_coords_dots[2]
 
+    if type(renderer).__name__ == "MultiPageRenderer":
+        dots = dots - 2 * renderer.PRINT_SAFE_MARGIN_PT
+
     step_horiz = dots / renderer.grid.horiz_count
 
     # make some text for the scalebar (sort units)
@@ -43,10 +46,12 @@ def render(renderer, ctx):
     tickHeight = pt2px(15)	# height of the tick marks
 
     x = barBuffer
-    x+= pt2px(Renderer.PRINT_SAFE_MARGIN_PT)
+    x+= map_coords_dots[0]
+    if type(renderer).__name__ == "MultiPageRenderer":
+        x += renderer.PRINT_SAFE_MARGIN_PT
 
     y = m.height
-    y+= pt2px(Renderer.PRINT_SAFE_MARGIN_PT + renderer._title_margin_pt)
+    y+= map_coords_dots[1]
     y-= barBuffer+lBuffer+lBuffer+tickHeight
 
     w = pxScaleBar + 2*lBuffer
