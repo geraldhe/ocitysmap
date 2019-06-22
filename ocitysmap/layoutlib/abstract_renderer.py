@@ -309,7 +309,7 @@ class Renderer:
         Return a new Grid object.
         """
 
-        return Grid(canvas.get_actual_bounding_box(), canvas.get_actual_scale() * dpi / 72, self.rc.i18n.isrtl())
+        return Grid(canvas.get_actual_bounding_box(), canvas.get_actual_scale(), self.rc.i18n.isrtl())
 
     def _apply_grid(self, map_grid, canvas):
         grid_shape = map_grid.generate_shape_file(
@@ -341,6 +341,11 @@ class Renderer:
     def get_compatible_output_formats():
         return [ "png", "svgz", "pdf", "csv" ]
 
+    def _has_multipage_format(self):
+        if self.rc.output_format == 'pdf':
+            return True
+        return False
+
     @staticmethod
     def get_compatible_paper_sizes(bounding_box, scale):
         """Returns a list of the compatible paper sizes for the given bounding
@@ -359,7 +364,10 @@ class Renderer:
 
     # convert geo into pixel coordinates for direct rendering of geo features
     # mostly needed by rendering overlay plugins
-    def _latlon2xy(self, lat, lon, dpi):
+    def _latlon2xy(self, lat, lon, dpi = None):
+        if dpi is None:
+            dpi = self.dpi
+
         bbox = self._map_canvas.get_actual_bounding_box()
 
         vert_angle_span  = abs(bbox.get_top_left()[1] - bbox.get_bottom_right()[1])

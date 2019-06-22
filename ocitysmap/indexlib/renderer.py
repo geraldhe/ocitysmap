@@ -72,9 +72,9 @@ class StreetIndexRenderingStyle:
                                                  repr(self.label_font_spec))
 
 
-class StreetIndexRenderingArea:
+class IndexRenderingArea:
     """
-    The StreetIndexRenderingArea class describes the parameters of the
+    The IndexRenderingArea class describes the parameters of the
     Cairo area and its parameters (fonts) where the index should be
     renedered. It is basically returned by
     StreetIndexRenderer::precompute_occupation_area() and used by
@@ -117,8 +117,8 @@ class PoiIndexRenderer:
         x+= w * 0.2
         w = w * 0.8
 
-        area = StreetIndexRenderingArea("default_poi_style",
-                                         x, y, w, h, 1)
+        area = IndexRenderingArea("default_poi_style",
+                                  x, y, w, h, 1)
 
         return area
 
@@ -328,7 +328,7 @@ class StreetIndexRenderer:
                 of 'height', 'left' or 'right' for 'width'. Tells which side to
                 stick the index to.
 
-        Returns the actual graphical StreetIndexRenderingArea defining
+        Returns the actual graphical IndexRenderingArea defining
         how and where the index should be rendered. Raise
         IndexDoesNotFitError when the provided area's surface is not
         enough to hold the index.
@@ -387,9 +387,9 @@ class StreetIndexRenderer:
         if alignment == 'right':
             base_offset_x = w - index_width
 
-        area = StreetIndexRenderingArea(rendering_style,
-                                        x+base_offset_x, y+base_offset_y,
-                                        index_width, index_height, n_cols)
+        area = IndexRenderingArea(rendering_style,
+                                  x+base_offset_x, y+base_offset_y,
+                                  index_width, index_height, n_cols)
         LOG.debug("Will be able to render index in %s" % area)
         return area
 
@@ -403,7 +403,7 @@ class StreetIndexRenderer:
 
         Args:
             ctx (cairo.Context): the cairo context to use for the rendering.
-            rendering_area (StreetIndexRenderingArea): the result from
+            rendering_area (IndexRenderingArea): the result from
                 precompute_occupation_area().
             dpi (number): resolution of the target device.
         """

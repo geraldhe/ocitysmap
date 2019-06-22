@@ -23,7 +23,7 @@ import math
 
 from . import shapes
 
-l = logging.getLogger('ocitysmap')
+LOG = logging.getLogger('ocitysmap')
 
 class OverviewGrid:
     """
@@ -47,7 +47,7 @@ class OverviewGrid:
         self.rtl   = rtl
         self._height_m, self._width_m = bounding_box.spheric_sizes()
 
-        l.info('Laying out of overview grid on %.1fx%.1fm area...' %
+        LOG.info('Laying out of overview grid on %.1fx%.1fm area...' %
                (self._width_m, self._height_m))
 
     def generate_shape_file(self, filename):

@@ -59,6 +59,7 @@ def render(renderer, ctx):
 
     ctx.save()
 
+    # scalebar box with border and semi-transparent background
     ctx.rectangle(x,y,w,h)
     ctx.set_source_rgba(0, 0, 0, 0.5)
     ctx.set_line_width(pt2px(1))
@@ -66,6 +67,7 @@ def render(renderer, ctx):
     ctx.set_source_rgba(1, 1, 1, 0.5)
     ctx.fill()
 
+    # scalebar line
     ctx.move_to(x + lBuffer, y + lBuffer)
     ctx.rel_line_to(0, tickHeight/2)
     ctx.rel_line_to(w-lBuffer-lBuffer, 0)
@@ -73,9 +75,11 @@ def render(renderer, ctx):
     ctx.set_source_rgba(0, 0, 0, 0.85)
     ctx.stroke()
 
+    # scalebar line length
     ctx.set_font_size(pt2px(10))
     draw_simpletext_center(ctx, scaleText, x+w/2, y+h*0.25)
 
+    # scale factor text
     ctx.set_font_size(pt2px(8))
     draw_simpletext_center(ctx, "1:%d" % renderer._map_canvas.get_actual_scale(), x+w/2, y+h*0.75)
     

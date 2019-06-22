@@ -157,7 +157,7 @@ def render(renderer, ctx):
     cursor = renderer.db.cursor()
     cursor.execute(query)
 
-    map_scale = renderer._map_canvas.get_actual_scale()
+    map_scale = renderer._map_canvas.get_actual_scale() * 72.0 / renderer.dpi
 
     for lat, lon, surveillance, surveillance_type, direction, angle, camera_type, height in cursor.fetchall():
         if surveillance_type == 'camera':

@@ -53,8 +53,12 @@ class Stylesheet:
         self.path        = None # str
         self.description = '' # str
         self.annotation  = '' # str
+        self.datasource  = '' # str
         self.url         = '' # str
         self.group       = '' # str
+        self.aliases     = [] # array of str
+
+        self.exclude_layers = []
 
         self.grid_line_color = 'black'
         self.grid_line_alpha = 0.2
@@ -86,6 +90,10 @@ class Stylesheet:
             if parser.has_option(section_name, key):
                 setattr(s, key, cast_fn(parser.get(section_name, key)))
 
+        def assign_list_if_present(key):
+            if parser.has_option(section_name, key):
+                setattr(s, key, parser.get(section_name, key).split(','))
+
         s.name = parser.get(section_name, 'name')
         s.path = parser.get(section_name, 'path')
         if not s.path.startswith('internal:') and not os.path.exists(s.path):
@@ -93,8 +101,10 @@ class Stylesheet:
                 'Could not find stylesheet file for stylesheet %s!' % s.name)
         assign_if_present('description')
         assign_if_present('annotation')
+        assign_if_present('datasource')
         assign_if_present('url')
         assign_if_present('group')
+        assign_list_if_present('aliases')
 
         assign_if_present('grid_line_color')
         assign_if_present('grid_line_alpha', float)
@@ -107,6 +117,8 @@ class Stylesheet:
         assign_if_present('shade_alpha_2', float)
 
         assign_if_present('bbox', parse_bbox)
+
+        assign_list_if_present('exclude_layers')
 
         return s
 
