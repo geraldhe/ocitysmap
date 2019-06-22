@@ -82,7 +82,7 @@ class SinglePageRenderer(Renderer):
            rc (RenderingConfiguration): rendering parameters.
            tmpdir (os.path): Path to a temp dir that can hold temp files.
            index_position (str): None or 'side' (index on side),
-              'bottom' (index at bottom).
+              'bottom' (index at bottom), 'extra_page' (index on 2nd page for PDF).
         """
 
         Renderer.__init__(self, db, rc, tmpdir, dpi)
@@ -103,6 +103,8 @@ class SinglePageRenderer(Renderer):
             min(Renderer.GRID_LEGEND_MARGIN_RATIO * self.paper_width_pt,
                 Renderer.GRID_LEGEND_MARGIN_RATIO * self.paper_height_pt)
 
+        self.index_position = index_position
+
         if self.rc.title:
             self._title_margin_pt = 0.05 * self.paper_height_pt
         else:
@@ -121,12 +123,12 @@ class SinglePageRenderer(Renderer):
         if ( index_position and self.street_index
              and self.street_index.categories ):
             self._index_renderer, self._index_area \
-                = self._create_index_rendering(index_position == "side")
+                = self._create_index_rendering(index_position)
         else:
             self._index_renderer, self._index_area = None, None
 
         # Prepare the layout of the whole page
-        if not self._index_area:
+        if not self._index_area or index_position == 'extra_page':
             # No index displayed
             self._map_coords = ( Renderer.PRINT_SAFE_MARGIN_PT,
                                  ( Renderer.PRINT_SAFE_MARGIN_PT
@@ -204,7 +206,7 @@ class SinglePageRenderer(Renderer):
             self._apply_grid(self.grid, self._map_canvas)
 
         # Update the street_index to reflect the grid's actual position
-        if self.grid and self.street_index:
+        if self.grid and self.street_index and index_position is not None:
             self.street_index.apply_grid(self.grid)
 
             # Dump the CSV street index
@@ -216,15 +218,17 @@ class SinglePageRenderer(Renderer):
         for overlay_canvas in self._overlay_canvases:
            overlay_canvas.render()
 
-    def _create_index_rendering(self, on_the_side):
+    def _create_index_rendering(self, index_position):
         """
         Prepare to render the Street index.
 
         Args:
-           on_the_side (bool): True=index on the side, False=at bottom.
-
+           index_position (string): None, side, bottom or extra_page
         Return a couple (StreetIndexRenderer, StreetIndexRenderingArea).
         """
+
+        index_area = None
+
         # Now we determine the actual occupation of the index
         if self.rc.poi_file:
             index_renderer = PoiIndexRenderer(self.rc.i18n,
@@ -239,7 +243,7 @@ class SinglePageRenderer(Renderer):
                                         self.paper_width_pt,
                                         self.paper_height_pt)
 
-        if on_the_side:
+        if index_position == 'side':
             index_max_width_pt \
                 = self.MAX_INDEX_OCCUPATION_RATIO * self._usable_area_width_pt
 
@@ -262,7 +266,7 @@ class SinglePageRenderer(Renderer):
                     index_max_width_pt,
                     self._usable_area_height_pt,
                     'width', 'left')
-        else:
+        elif index_position == 'bottom':
             # Index at the bottom of the page
             index_max_height_pt \
                 = self.MAX_INDEX_OCCUPATION_RATIO * self._usable_area_height_pt
@@ -381,6 +385,16 @@ class SinglePageRenderer(Renderer):
                 notice+= _(u'Map styles:')
                 notice+= ' ' + '; '.join(annotations) + '\n'
 
+            datasources = set()
+            if self.rc.stylesheet.datasource != '':
+                datasources.add(self.rc.stylesheet.datasource)
+            for overlay in self._overlays:
+                if overlay.datasource != '':
+                    datasources.add(overlay.datasource)
+            if len(datasources) > 0:
+                notice+= _(u'Additional data sources:')
+                notice+= ' ' + '; '.join(list(datasources)) + '\n'
+
             notice+= _(u'Map rendered on: %(date)s. OSM data updated on: %(osmdate)s.')
             notice+= ' '
             notice+= _(u'The map may be incomplete or inaccurate.')
@@ -409,33 +423,6 @@ class SinglePageRenderer(Renderer):
         fd = Pango.FontDescription('DejaVu')
         fd.set_size(Pango.SCALE)
         layout = PangoCairo.create_layout(ctx)
-        layout.set_font_description(fd)
-        layout.set_text(notice, -1)
-        draw_utils.adjust_font_size(layout, fd, w_dots, h_dots)
-        PangoCairo.update_layout(ctx, layout)
-        PangoCairo.show_layout(ctx, layout)
-        ctx.restore()
-
-    def _draw_creator_notice(self, ctx, w_dots, h_dots, notice=None,
-                               osm_date=None):
-        """
-        Args:
-           ctx (cairo.Context): The Cairo context to use to draw.
-           w_dots,h_dots (number): Rectangle dimension (ciaro units).
-           font_face (str): Pango font specification.
-           notice (str): Optional notice to replace the default.
-        """
-
-        today = datetime.date.today()
-        notice = notice or \
-            _(u'Erstellt mit http://umgebungsplaene.osm-baustelle.de/  -  '
-                    u'Kontakt: Hartmut Holzgraefe (hartmut@php.net)')
-
-        ctx.save()
-        pc = PangoCairo.create_context(ctx)
-        layout = PangoCairo.create_layout(ctx)
-        fd = Pango.FontDescription('DejaVu')
-        fd.set_size(Pango.SCALE)
         layout.set_font_description(fd)
         layout.set_text(notice, -1)
         draw_utils.adjust_font_size(layout, fd, w_dots, h_dots)
@@ -545,6 +532,13 @@ class SinglePageRenderer(Renderer):
         LOG.debug('Map:')
         LOG.debug('Mapnik scale: 1/%f' % rendered_map.scale_denominator())
         LOG.debug('Actual scale: 1/%f' % self._map_canvas.get_actual_scale())
+
+        # exclude layers based on configuration setting "exclude_layers"
+        for layer in rendered_map.layers:
+            if layer.name in self.rc.stylesheet.exclude_layers:
+                LOG.debug("Excluding layer: %s" % layer.name)
+                layer.status = False
+
         mapnik.render(rendered_map, ctx, scale_factor, 0, 0)
         ctx.restore()
 
@@ -557,7 +551,7 @@ class SinglePageRenderer(Renderer):
             ctx.restore()
 
         # Place the vertical and horizontal square labels
-        if self.grid and self._index_area:
+        if self.grid and self.index_position:
             self._draw_labels(ctx, self.grid,
                               map_coords_dots[2],
                               map_coords_dots[3],
@@ -639,9 +633,38 @@ class SinglePageRenderer(Renderer):
           self.render_plugin(effect, ctx)
         ctx.restore()
 
+        if self._has_multipage_format() and self.index_position == 'extra_page':
+            cairo_surface.show_page()
 
+            # We use a fake vector device to determine the actual
+            # rendering characteristics
+            fake_surface = cairo.PDFSurface(None,
+                                            self.paper_width_pt,
+                                            self.paper_height_pt)
 
-        cairo_surface.flush()
+            usable_area_width_pt = (self.paper_width_pt -
+                                          2 * Renderer.PRINT_SAFE_MARGIN_PT)
+            usable_area_height_pt = (self.paper_height_pt -
+                                           2 * Renderer.PRINT_SAFE_MARGIN_PT)
+
+            index_area = self._index_renderer.precompute_occupation_area(
+                fake_surface,
+                Renderer.PRINT_SAFE_MARGIN_PT,
+                ( self.paper_height_pt
+                  - Renderer.PRINT_SAFE_MARGIN_PT
+                  - usable_area_height_pt
+                ),
+                usable_area_width_pt,
+                usable_area_height_pt,
+                'width', 'left')
+
+            ctx.save()
+            self._index_renderer.render(ctx, index_area, dpi)
+            ctx.restore()
+
+            cairo_surface.show_page()
+        else:
+            cairo_surface.flush()
 
     @staticmethod
     def _generic_get_compatible_paper_sizes(bounding_box,
@@ -654,7 +677,7 @@ class SinglePageRenderer(Renderer):
             bounding_box (coords.BoundingBox): the map geographic bounding box.
             scale (int): minimum mapnik scale of the map.
            index_position (str): None or 'side' (index on side),
-              'bottom' (index at bottom).
+              'bottom' (index at bottom), 'extra_page' (index on 2nd page for PDF).
 
         Returns a list of tuples (paper name, width in mm, height in
         mm, portrait_ok, landscape_ok, is_default). Paper sizes are

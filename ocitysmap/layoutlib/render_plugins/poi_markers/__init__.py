@@ -18,22 +18,6 @@ LOG = logging.getLogger('ocitysmap')
 
 def render(renderer, ctx):
     if renderer.rc.poi_file:
-    ##
-    ## Draw the creator notice
-    ##
-        #ctx.save()
-        #
-        # Move to the right position
-        #ctx.translate(safe_margin_dots + usable_area_width_dots/2.3,
-        #              ( safe_margin_dots + title_margin_dots
-        #                + usable_area_height_dots
-        #                + copyright_margin_dots/4. ) )
-        
-        # Draw the copyright notice
-        #self._draw_creator_notice(ctx, usable_area_width_dots,
-        #                          copyright_margin_dots,
-        #                          osm_date=osm_date)
-        #ctx.restore()
 
         # place POI markers on map canvas
         n = 0

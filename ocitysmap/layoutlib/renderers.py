@@ -3,6 +3,7 @@
 from ocitysmap.layoutlib.single_page_renderer.no_index import SinglePageRendererNoIndex
 from ocitysmap.layoutlib.single_page_renderer.side_index import SinglePageRendererIndexOnSide
 from ocitysmap.layoutlib.single_page_renderer.bottom_index import SinglePageRendererIndexBottom
+from ocitysmap.layoutlib.single_page_renderer.extra_page import SinglePageRendererIndexExtraPage
 from ocitysmap.layoutlib.multi_page_renderer import MultiPageRenderer
 
 # The renderers registry
@@ -10,6 +11,7 @@ _RENDERERS = [
     SinglePageRendererNoIndex,
     SinglePageRendererIndexOnSide,
     SinglePageRendererIndexBottom,
+    SinglePageRendererIndexExtraPage,
     MultiPageRenderer,
     ]
 

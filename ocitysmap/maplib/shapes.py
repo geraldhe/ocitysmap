@@ -33,7 +33,7 @@ try:
 except ImportError:
     import ogr
 
-l = logging.getLogger('ocitysmap')
+LOG = logging.getLogger('ocitysmap')
 
 class _ShapeFile:
     """
@@ -99,7 +99,7 @@ class LineShapeFile(_ShapeFile):
         _ShapeFile.__init__(self, bounding_box, out_filename, layer_name)
         self._layer = self._ds.CreateLayer(self._layer_name,
                                            geom_type=ogr.wkbLineString)
-        l.debug('Created layer %s in LineShapeFile %s.' %
+        LOG.debug('Created layer %s in LineShapeFile %s.' %
                 (layer_name, out_filename))
 
     def add_bounding_rectangle(self):
@@ -163,7 +163,7 @@ class PolyShapeFile(_ShapeFile):
         _ShapeFile.__init__(self, bounding_box, out_filename, layer_name)
         self._layer = self._ds.CreateLayer(self._layer_name,
                                            geom_type=ogr.wkbPolygon)
-        l.debug('Created layer %s in PolyShapeFile %s.' %
+        LOG.debug('Created layer %s in PolyShapeFile %s.' %
                 (layer_name, out_filename))
 
     def add_shade_from_wkt(self, wkt):

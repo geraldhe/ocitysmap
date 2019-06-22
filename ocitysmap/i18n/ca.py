@@ -11,8 +11,7 @@ class i18n_ca_generic(i18n):
                      u"Monestir", u"Monument", u"Museu", u"Passatge",
                      u"Passeig", u"Plaça", u"Planta", u"Polígon",
                      u"Pujada", u"Rambla", u"Ronda", u"Travessera",
-                     u"Travessia", u"Urbanització", u"Via",
-                     u"Avenida", u"Calle", u"Camino", u"Plaza",
+                     u"Travessia", u"Torrent", u"Urbanització", u"Via",
 
                      # Spanish (being distinct from Catalan)
                      u"Acceso", u"Acequia", u"Alameda", u"Alquería",
@@ -69,22 +68,12 @@ class i18n_ca_generic(i18n):
                      u"Venelle", u"Villa", u"Virage"
                    ]
 
-    DETERMINANTS = [ # Catalan
-                     u" de", u" de la", u" del", u" dels", u" d'",
-                     u" de l'", u" de sa", u" de son", u" de s'",
-                     u" de ses", u" d'en", u" de na", u" de n'",
-
-                     # Spanish (being distinct from Catalan)
-                     u" de las",  u" de los",
-
-                     # French (being distinct from Catalan and Spanish)
-                     u" du",
-                     u""]
-
-
-    DETERMINANTS = [ u" de", u" de la", u" del", u" de las",
-                     u" dels", u" de los", u" d'", u" de l'", u"de sa", u"de son", u"de s'",
-                     u"de ses", u"d'en", u"de na", u"de n'", u"" ]
+    DETERMINANTS = [ u" dels", u" de los", 
+                     u" de les", u" de ses", u" de las",    
+                     u" de la", u" de sa", u" de na",
+                     u" del", u" de lo", u" d'en",
+                     u" d'", u" de l'", u" de s'", u" de n'",
+                     u" de", u" du", u"" ]
 
     SPACE_REDUCE = re.compile(r"\s+")
     PREFIX_REGEXP = re.compile(r"^(?P<prefix>(%s)(%s)?)\s?\b(?P<name>.+)" %

@@ -27,7 +27,7 @@ import math
 
 from . import shapes
 
-l = logging.getLogger('ocitysmap')
+LOG = logging.getLogger('ocitysmap')
 
 class Grid:
     """
@@ -52,7 +52,7 @@ class Grid:
         self.scale = scale
         self._height_m, self._width_m = bounding_box.spheric_sizes()
 
-        l.info('Laying out grid on %.1fx%.1fm area...' %
+        LOG.info('Laying out grid on %.1fx%.1fm area...' %
                (self._width_m, self._height_m))
 
         # compute the terrain grid size corresponding to the targeted paper size
@@ -120,7 +120,7 @@ class Grid:
         self.vertical_labels = list(map(self._gen_vertical_square_label,
                                    range(int(math.ceil(self.vert_count)))))
 
-        l.info('Using %dx%dm grid (%.2fx%.2f squares).' %
+        LOG.info('Using %dx%dm grid (%.2fx%.2f squares).' %
                (self.grid_size_m, self.grid_size_m,
                 self.horiz_count, self.vert_count))
 
@@ -137,7 +137,7 @@ class Grid:
         # Use a slightly larger bounding box for the shape file to accomodate
         # for the small imprecisions of re-projecting and the extra gray margin
         # area in multi page maps
-        l.debug("Generating shapefile")
+        LOG.debug("Generating shapefile")
         g = shapes.LineShapeFile(self._bbox.create_expanded(self.scale/6000000, self.scale/6000000),
                                  filename, 'grid')
         for x in self._vertical_lines:

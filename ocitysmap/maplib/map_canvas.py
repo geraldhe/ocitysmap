@@ -41,7 +41,7 @@ import ocitysmap
 from ocitysmap.layoutlib.commons import convert_pt_to_dots
 import ocitysmap.maplib.shapes
 
-l = logging.getLogger('ocitysmap')
+LOG = logging.getLogger('ocitysmap')
 
 _MAPNIK_PROJECTION = "+proj=merc +a=6378137 +b=6378137 +lat_ts=0.0 " \
                      "+lon_0=0.0 +x_0=0.0 +y_0=0 +k=1.0 +units=m   " \
@@ -55,7 +55,7 @@ class MapCanvas:
     their respective alpha levels.
     """
 
-    def __init__(self, stylesheet, bounding_box, _width, _height, dpi,
+    def __init__(self, stylesheet, bounding_box, _width, _height, dpi=72.0,
                  extend_bbox_to_ratio=True):
         """Initialize the map canvas for rendering.
 
@@ -63,12 +63,14 @@ class MapCanvas:
             stylesheet (Stylesheet): map stylesheet.
             bounding_box (coords.BoundingBox): geographic bounding box.
             graphical_ratio (float): ratio of the map area (width/height).
+            dpi (float): map resolution (default: 72dpi)
             extend_bbox_to_ratio (boolean): allow MapCanvas to extend
             the bounding box to make it match the ratio of the
             provided rendering area. Needed by SinglePageRenderer.
         """
 
         self._proj = mapnik.Projection(_MAPNIK_PROJECTION)
+        self._dpi  = dpi
 
         # This is where the magic of the map canvas happens. Given an original
         # bounding box and a graphical ratio for the output, the bounding box
@@ -85,7 +87,7 @@ class MapCanvas:
 
             envelope = mapnik.Box2d(off_x, off_y, off_x+width, off_y+height)
             self._geo_bbox = self._inverse_envelope(envelope)
-            l.debug('Corrected bounding box from %s to %s, ratio: %.2f.' %
+            LOG.debug('Corrected bounding box from %s to %s, ratio: %.2f.' %
                     (bounding_box, self._geo_bbox, graphical_ratio))
         else:
             envelope = orig_envelope
@@ -103,7 +105,7 @@ class MapCanvas:
         # Added shapes to render
         self._shapes = []
 
-        l.debug('MapCanvas rendering map on %dx%dpx.' % (g_width, g_height))
+        LOG.debug('MapCanvas rendering map on %dx%dpx.' % (g_width, g_height))
 
     def _fix_bbox_ratio(self, off_x, off_y, width, height, dest_ratio):
         """Adjusts the area expressed by its origin's offset and its size to
@@ -139,8 +141,8 @@ class MapCanvas:
         self._shapes.append({'shape_file': shape_file,
                              'color': col,
                              'line_width': line_width})
-        #l.debug('Added shape file %s to map canvas as layer %s.' %
-        #        (shape_file.get_filepath(), shape_file.get_layer_name()))
+        LOG.debug('Added shape file %s to map canvas as layer %s.' %
+                (shape_file.get_filepath(), shape_file.get_layer_name()))
 
     def render(self):
         """Render the map in memory with all the added shapes. The Mapnik Map
@@ -165,11 +167,11 @@ class MapCanvas:
         lat = self._geo_bbox.get_top_left()[0]
         scale *= math.cos(math.radians(lat))
         # by convention, the scale denominator uses 90 ppi whereas cairo uses 72 ppi
-        scale *= float(72) / 90
+        scale *= float(self._dpi) / 90
         return scale
 
     def _render_shape_file(self, shape_file, color, line_width):
-        #l.debug("render_shape_file")
+        LOG.debug("render_shape_file")
         shape_file.flush()
 
         shpid = os.path.basename(shape_file.get_filepath())

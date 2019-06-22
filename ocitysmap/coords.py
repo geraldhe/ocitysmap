@@ -234,21 +234,6 @@ class BoundingBox:
         bottom_right = mapnik.Coord(top_right.x, bottom_left.y)
         return (bottom_right, bottom_left, top_left, top_right)
 
-    def as_javascript(self, name=None, color=None):
-        if name:
-            name_str = ", \"%s\"" % name
-        else:
-            name_str = ""
-
-        if color:
-            color_str = ", { color: \"%s\" }" % color
-        else:
-            color_str = ""
-
-        return 'BoundingBox(%f,%f,%f,%f%s%s)' % \
-            (self._lat1, self._long1, self._lat2, self._long2,
-             name_str, color_str)
-
     def as_json_bounds(self):
         """Returns this bounding box as an array of arrays that can be
         serialized as JSON."""
