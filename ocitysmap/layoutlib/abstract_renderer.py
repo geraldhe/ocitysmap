@@ -63,9 +63,8 @@ class Renderer:
     # etc.
     PRINT_SAFE_MARGIN_PT = 0
 
-    PRINT_BLEED_DIFFERENCE_MM = 2 # 2mm Beschittzugabe
-
-    PRINT_BLEED_DIFFERENCE_PT = commons.convert_mm_to_pt(PRINT_BLEED_DIFFERENCE_MM)
+    PRINT_BLEED_MM = 2 # 2mm Beschittzugabe
+    PRINT_BLEED_PT = commons.convert_mm_to_pt(PRINT_BLEED_MM)
 
     LAYOUT_MARGIN_PT = 15
 
@@ -95,9 +94,9 @@ class Renderer:
         self.grid         = None # The implementation is in charge of it
 
         self.paper_width_pt = \
-                commons.convert_mm_to_pt(self.rc.paper_width_mm + 2 * self.PRINT_BLEED_DIFFERENCE_MM)
+                commons.convert_mm_to_pt(self.rc.paper_width_mm + 2 * self.PRINT_BLEED_MM)
         self.paper_height_pt = \
-                commons.convert_mm_to_pt(self.rc.paper_height_mm + 2 * self.PRINT_BLEED_DIFFERENCE_MM)
+                commons.convert_mm_to_pt(self.rc.paper_height_mm + 2 * self.PRINT_BLEED_MM)
         self._title_margin_pt = 0
         self.dpi = dpi
 

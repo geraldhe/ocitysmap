@@ -70,8 +70,9 @@ class MultiPageRenderer(Renderer):
     GRAYED_MARGIN_INSIDE_MM = 3.3 + 15 # 3.3mm für Klebebindung + 15mm Abstand zum "Text" / zur Karte
     GRAYED_MARGIN_OUTSIDE_MM = 10
 
-    OVERLAP_MARGIN_HOR_MM = 0 # GRAYED_MARGIN_INSIDE_MM + GRAYED_MARGIN_OUTSIDE_MM
-    OVERLAP_MARGIN_VERT_MM = 0 # 2*GRAYED_MARGIN_TOP_BOTTOM_MM 
+    OVERLAP_MARGIN_HOR_MM = 0
+    OVERLAP_MARGIN_VERT_MM = 0
+
     MARKER_SIZE_MM = 25
 
     def __init__(self, db, rc, tmpdir, dpi, file_prefix):
@@ -81,15 +82,30 @@ class MultiPageRenderer(Renderer):
             min(Renderer.GRID_LEGEND_MARGIN_RATIO * self.paper_width_pt,
                 Renderer.GRID_LEGEND_MARGIN_RATIO * self.paper_height_pt)
 
+        overlap_margin_hor_pt = commons.convert_mm_to_pt(MultiPageRenderer.OVERLAP_MARGIN_HOR_MM)
+        overlap_margin_vert_pt = commons.convert_mm_to_pt(MultiPageRenderer.OVERLAP_MARGIN_VERT_MM)
+
+        self.grayed_margin_top_bottom_mm = MultiPageRenderer.GRAYED_MARGIN_TOP_BOTTOM_MM
+        self.grayed_margin_top_bottom_pt = commons.convert_mm_to_pt(MultiPageRenderer.GRAYED_MARGIN_TOP_BOTTOM_MM)
+        self.grayed_margin_inside_mm = MultiPageRenderer.GRAYED_MARGIN_INSIDE_MM
+        self.grayed_margin_inside_pt = commons.convert_mm_to_pt(MultiPageRenderer.GRAYED_MARGIN_INSIDE_MM)
+        self.grayed_margin_outside_mm = MultiPageRenderer.GRAYED_MARGIN_OUTSIDE_MM
+        self.grayed_margin_outside_pt = commons.convert_mm_to_pt(MultiPageRenderer.GRAYED_MARGIN_OUTSIDE_MM)
+
+        self.print_bleed_mm = commons.convert_pt_to_mm(Renderer.PRINT_BLEED_PT)
+        self.print_bleed_pt = Renderer.PRINT_BLEED_PT
+
+        self.marker_size_pt = commons.convert_mm_to_pt(MultiPageRenderer.MARKER_SIZE_MM)
+
         # Compute the usable area for the map per page
         self._usable_map_area_width_pt = self.paper_width_pt
         self._usable_map_area_height_pt = self.paper_height_pt
-        
-        self._visible_map_area_width_pt = self.paper_width_pt - 2*Renderer.PRINT_BLEED_DIFFERENCE_PT - commons.convert_mm_to_pt(MultiPageRenderer.GRAYED_MARGIN_INSIDE_MM + MultiPageRenderer.GRAYED_MARGIN_OUTSIDE_MM)
-        self._visible_map_area_height_pt = self.paper_height_pt - 2*Renderer.PRINT_BLEED_DIFFERENCE_PT - commons.convert_mm_to_pt(2*MultiPageRenderer.GRAYED_MARGIN_TOP_BOTTOM_MM)
 
-        #self._map_coords = ( Renderer.PRINT_SAFE_MARGIN_PT + Renderer.PRINT_BLEED_DIFFERENCE_PT,
-        #                     Renderer.PRINT_SAFE_MARGIN_PT + Renderer.PRINT_BLEED_DIFFERENCE_PT,
+        self._visible_map_area_width_pt = self.paper_width_pt - 2*self.print_bleed_pt - self.grayed_margin_inside_pt - self.grayed_margin_outside_pt
+        self._visible_map_area_height_pt = self.paper_height_pt - 2*self.print_bleed_pt - 2*self.grayed_margin_top_bottom_pt
+
+        #self._map_coords = ( Renderer.PRINT_SAFE_MARGIN_PT + Renderer.PRINT_BLEED_PT,
+        #                     Renderer.PRINT_SAFE_MARGIN_PT + Renderer.PRINT_BLEED_PT,
         #                     self._usable_map_area_width_pt,
         #                     self._usable_map_area_height_pt) 
 
@@ -115,21 +131,12 @@ class MultiPageRenderer(Renderer):
         self._proj = mapnik.Projection(coords._MAPNIK_PROJECTION)
         orig_envelope = self._project_envelope(self.rc.bounding_box)
 
-        overlap_margin_hor_pt = commons.convert_mm_to_pt(MultiPageRenderer.OVERLAP_MARGIN_HOR_MM)
-        overlap_margin_vert_pt = commons.convert_mm_to_pt(MultiPageRenderer.OVERLAP_MARGIN_VERT_MM)
-        self.grayed_margin_top_bottom_pt = commons.convert_mm_to_pt(MultiPageRenderer.GRAYED_MARGIN_TOP_BOTTOM_MM)
-        self.grayed_margin_inside_pt = commons.convert_mm_to_pt(MultiPageRenderer.GRAYED_MARGIN_INSIDE_MM)
-        self.grayed_margin_outside_pt = commons.convert_mm_to_pt(MultiPageRenderer.GRAYED_MARGIN_OUTSIDE_MM)
-        self.print_bleeding_difference_pt = Renderer.PRINT_BLEED_DIFFERENCE_PT
-        self.print_bleeding_difference_mm = commons.convert_pt_to_mm(Renderer.PRINT_BLEED_DIFFERENCE_PT)
-        self.marker_size_pt = commons.convert_mm_to_pt(MultiPageRenderer.MARKER_SIZE_MM)
-
         while True:
             # Extend the bounding box to take into account the lost outer
             # margin
-            off_x  = orig_envelope.minx #- (self.print_bleeding_difference_mm + ((MultiPageRenderer.GRAYED_MARGIN_INSIDE_MM + MultiPageRenderer.GRAYED_MARGIN_OUTSIDE_MM) / 2)) * 9.6
+            off_x  = orig_envelope.minx #- (self.print_bleed_mm + ((MultiPageRenderer.GRAYED_MARGIN_INSIDE_MM + MultiPageRenderer.GRAYED_MARGIN_OUTSIDE_MM) / 2)) * 9.6
             off_y  = orig_envelope.miny #- MultiPageRenderer.GRAYED_MARGIN_TOP_BOTTOM_MM * 9.6
-            width  = orig_envelope.width() #+ (MultiPageRenderer.GRAYED_MARGIN_INSIDE_MM + MultiPageRenderer.GRAYED_MARGIN_OUTSIDE_MM + 2*self.print_bleeding_difference_mm) * 9.6
+            width  = orig_envelope.width() #+ (MultiPageRenderer.GRAYED_MARGIN_INSIDE_MM + MultiPageRenderer.GRAYED_MARGIN_OUTSIDE_MM + 2*self.print_bleed_mm) * 9.6
             height = orig_envelope.height() #+ (2*MultiPageRenderer.GRAYED_MARGIN_TOP_BOTTOM_MM) * 9.6
             #print("orig_envelope.minx", orig_envelope.minx, "orign_envelope.miny", orig_envelope.miny, "orig_envelope.width", orig_envelope.width(), "orig_envelope.height", orig_envelope.height())
             # Calculate the total width and height of paper needed to
@@ -211,11 +218,11 @@ class MultiPageRenderer(Renderer):
         usable_area_merc_m_width  = commons.convert_pt_to_mm(self._usable_map_area_width_pt) * scale_denom / 1000
         usable_area_merc_m_height = commons.convert_pt_to_mm(self._usable_map_area_height_pt) * scale_denom / 1000
 
-        grayed_margin_top_bottom_merc_m = (MultiPageRenderer.GRAYED_MARGIN_TOP_BOTTOM_MM * scale_denom) / 1000
+        grayed_margin_top_bottom_merc_m = (self.grayed_margin_top_bottom_mm * scale_denom) / 1000
         grayed_margin_inside_merc_m = (MultiPageRenderer.GRAYED_MARGIN_INSIDE_MM * scale_denom) / 1000
         grayed_margin_outside_merc_m = (MultiPageRenderer.GRAYED_MARGIN_OUTSIDE_MM * scale_denom) / 1000
 
-        print_bleed_difference_merc_m = (commons.convert_pt_to_mm(Renderer.PRINT_BLEED_DIFFERENCE_PT) * scale_denom) / 1000
+        print_bleed_merc_m = (self.print_bleed_mm * scale_denom) / 1000
 
         overlap_margin_hor_merc_m = (MultiPageRenderer.OVERLAP_MARGIN_HOR_MM * scale_denom) / 1000
         overlap_margin_vert_merc_m = (MultiPageRenderer.OVERLAP_MARGIN_VERT_MM * scale_denom) / 1000
@@ -231,21 +238,21 @@ class MultiPageRenderer(Renderer):
             self.page_disposition[row] = []
             for i in range(0, self.nb_pages_width):
                 cur_x = off_x + \
-                    i * (usable_area_merc_m_width - 2*print_bleed_difference_merc_m - grayed_margin_inside_merc_m - grayed_margin_outside_merc_m) \
-                    - print_bleed_difference_merc_m - grayed_margin_inside_merc_m - grayed_margin_outside_merc_m \
+                    i * (usable_area_merc_m_width - 2*print_bleed_merc_m - grayed_margin_inside_merc_m - grayed_margin_outside_merc_m) \
+                    - print_bleed_merc_m - grayed_margin_inside_merc_m - grayed_margin_outside_merc_m \
                     + (grayed_margin_outside_merc_m if (map_number + self._first_map_page_number) % 2 else grayed_margin_inside_merc_m)
                 cur_y = off_y + \
-                    j * (usable_area_merc_m_height - 2*print_bleed_difference_merc_m - 2*grayed_margin_top_bottom_merc_m) \
-                    - print_bleed_difference_merc_m - grayed_margin_top_bottom_merc_m
+                    j * (usable_area_merc_m_height - 2*print_bleed_merc_m - 2*grayed_margin_top_bottom_merc_m) \
+                    - print_bleed_merc_m - grayed_margin_top_bottom_merc_m
                 #print("page", (self._first_map_page_number + map_number), row, "col", i, "row", j, "{:10.4f}".format(cur_x), "{:10.4f}".format(cur_x - off_x), "{:10.4f}".format(cur_y), "{:10.4f}".format(cur_y - off_y))
                 envelope = mapnik.Box2d(cur_x, cur_y,
                                         cur_x+usable_area_merc_m_width,
                                         cur_y+usable_area_merc_m_height)
 
-                envelope_inner = mapnik.Box2d(cur_x + print_bleed_difference_merc_m + (grayed_margin_inside_merc_m if (self._first_map_page_number + map_number) % 2 else grayed_margin_outside_merc_m),
-                                              cur_y + print_bleed_difference_merc_m + grayed_margin_top_bottom_merc_m,
-                                              cur_x + usable_area_merc_m_width - print_bleed_difference_merc_m - (grayed_margin_outside_merc_m if (map_number + self._first_map_page_number) % 2 else grayed_margin_inside_merc_m),
-                                              cur_y + usable_area_merc_m_height - print_bleed_difference_merc_m - grayed_margin_top_bottom_merc_m)
+                envelope_inner = mapnik.Box2d(cur_x + print_bleed_merc_m + (grayed_margin_inside_merc_m if (self._first_map_page_number + map_number) % 2 else grayed_margin_outside_merc_m),
+                                              cur_y + print_bleed_merc_m + grayed_margin_top_bottom_merc_m,
+                                              cur_x + usable_area_merc_m_width - print_bleed_merc_m - (grayed_margin_outside_merc_m if (map_number + self._first_map_page_number) % 2 else grayed_margin_inside_merc_m),
+                                              cur_y + usable_area_merc_m_height - print_bleed_merc_m - grayed_margin_top_bottom_merc_m)
                 inner_bb = self._inverse_envelope(envelope_inner)
                 if not area_polygon.disjoint(shapely.wkt.loads(inner_bb.as_wkt())):
                     self.page_disposition[row].append(map_number)
@@ -265,9 +272,9 @@ class MultiPageRenderer(Renderer):
         overview_lat_abs = math.fabs(overview_topleft[0]-overview_bottomright[0])
         overview_lng_abs = math.fabs(overview_topleft[1]-overview_bottomright[1])
         print("topleft", overview_topleft, "bottomright", overview_bottomright, "lat_abs", overview_lat_abs, "1ng_abs", overview_lng_abs)
-        overview_left_pad = overview_lat_abs/self._usable_map_area_width_pt * (self.grayed_margin_inside_pt + self.print_bleeding_difference_pt)
-        overview_right_pad = overview_lat_abs/self._usable_map_area_width_pt * (self.grayed_margin_outside_pt + self.print_bleeding_difference_pt)
-        overview_topbottom_pad = overview_lng_abs/self._usable_map_area_width_pt * (self.grayed_margin_top_bottom_pt + self.print_bleeding_difference_pt)
+        overview_left_pad = overview_lat_abs/self._usable_map_area_width_pt * (self.grayed_margin_inside_pt + self.print_bleed_pt)
+        overview_right_pad = overview_lat_abs/self._usable_map_area_width_pt * (self.grayed_margin_outside_pt + self.print_bleed_pt)
+        overview_topbottom_pad = overview_lng_abs/self._usable_map_area_width_pt * (self.grayed_margin_top_bottom_pt + self.print_bleed_pt)
         print(overview_left_pad, overview_right_pad, overview_topbottom_pad)
         
         # Create an overview map (top, left, bottom, right)
@@ -695,10 +702,10 @@ class MultiPageRenderer(Renderer):
         # Translate into the working area, taking 
         # LAYOUT_MARGIN_PT inside the grey area.
         ctx.save()
-        ctx.translate(Renderer.PRINT_SAFE_MARGIN_PT + Renderer.PRINT_BLEED_DIFFERENCE_PT + Renderer.LAYOUT_MARGIN_PT,
-                      Renderer.PRINT_SAFE_MARGIN_PT + Renderer.PRINT_BLEED_DIFFERENCE_PT + Renderer.LAYOUT_MARGIN_PT)
-        w = self.paper_width_pt - 2 * Renderer.LAYOUT_MARGIN_PT - 2 * Renderer.PRINT_BLEED_DIFFERENCE_PT
-        h = self.paper_height_pt - 2 * Renderer.LAYOUT_MARGIN_PT - 2 * Renderer.PRINT_BLEED_DIFFERENCE_PT
+        ctx.translate(Renderer.PRINT_SAFE_MARGIN_PT + Renderer.PRINT_BLEED_PT + Renderer.LAYOUT_MARGIN_PT,
+                      Renderer.PRINT_SAFE_MARGIN_PT + Renderer.PRINT_BLEED_PT + Renderer.LAYOUT_MARGIN_PT)
+        w = self.paper_width_pt - 2 * Renderer.LAYOUT_MARGIN_PT - 2 * Renderer.PRINT_BLEED_PT
+        h = self.paper_height_pt - 2 * Renderer.LAYOUT_MARGIN_PT - 2 * Renderer.PRINT_BLEED_PT
 
         self._render_front_page_map(ctx, dpi, w, h)
         self._render_front_page_header(ctx, w, h)
@@ -722,10 +729,10 @@ class MultiPageRenderer(Renderer):
         ctx.save()
         ctx.set_source_rgb(.95,.95,.95)
         ctx.rectangle(
-            Renderer.PRINT_BLEED_DIFFERENCE_PT + Renderer.PRINT_SAFE_MARGIN_PT,
-            Renderer.PRINT_BLEED_DIFFERENCE_PT + Renderer.PRINT_SAFE_MARGIN_PT,
-            self.paper_width_pt - 2*Renderer.PRINT_BLEED_DIFFERENCE_PT - 2*Renderer.PRINT_SAFE_MARGIN_PT,
-            self.paper_height_pt - 2*Renderer.PRINT_BLEED_DIFFERENCE_PT - 2*Renderer.PRINT_SAFE_MARGIN_PT)
+            Renderer.PRINT_BLEED_PT + Renderer.PRINT_SAFE_MARGIN_PT,
+            Renderer.PRINT_BLEED_PT + Renderer.PRINT_SAFE_MARGIN_PT,
+            self.paper_width_pt - 2*Renderer.PRINT_BLEED_PT - 2*Renderer.PRINT_SAFE_MARGIN_PT,
+            self.paper_height_pt - 2*Renderer.PRINT_BLEED_PT - 2*Renderer.PRINT_SAFE_MARGIN_PT)
         ctx.fill()
         ctx.restore()
 
@@ -733,17 +740,17 @@ class MultiPageRenderer(Renderer):
         ctx.save()
         ctx.set_source_rgb(.85,.85,.85)
         ctx.rectangle(
-            Renderer.PRINT_BLEED_DIFFERENCE_PT + Renderer.PRINT_SAFE_MARGIN_PT + commons.convert_mm_to_pt(MultiPageRenderer.GRAYED_MARGIN_INSIDE_MM if page % 2 else MultiPageRenderer.GRAYED_MARGIN_OUTSIDE_MM),
-            Renderer.PRINT_BLEED_DIFFERENCE_PT + Renderer.PRINT_SAFE_MARGIN_PT + commons.convert_mm_to_pt(MultiPageRenderer.GRAYED_MARGIN_TOP_BOTTOM_MM),
-            self.paper_width_pt - 2*Renderer.PRINT_BLEED_DIFFERENCE_PT - 2*Renderer.PRINT_SAFE_MARGIN_PT - commons.convert_mm_to_pt(MultiPageRenderer.GRAYED_MARGIN_INSIDE_MM + MultiPageRenderer.GRAYED_MARGIN_OUTSIDE_MM),
-            self.paper_height_pt - 2*Renderer.PRINT_BLEED_DIFFERENCE_PT - 2*Renderer.PRINT_SAFE_MARGIN_PT - 2*commons.convert_mm_to_pt(MultiPageRenderer.GRAYED_MARGIN_TOP_BOTTOM_MM))
+            Renderer.PRINT_BLEED_PT + Renderer.PRINT_SAFE_MARGIN_PT + commons.convert_mm_to_pt(MultiPageRenderer.GRAYED_MARGIN_INSIDE_MM if page % 2 else MultiPageRenderer.GRAYED_MARGIN_OUTSIDE_MM),
+            Renderer.PRINT_BLEED_PT + Renderer.PRINT_SAFE_MARGIN_PT + commons.convert_mm_to_pt(MultiPageRenderer.GRAYED_MARGIN_TOP_BOTTOM_MM),
+            self.paper_width_pt - 2*Renderer.PRINT_BLEED_PT - 2*Renderer.PRINT_SAFE_MARGIN_PT - commons.convert_mm_to_pt(MultiPageRenderer.GRAYED_MARGIN_INSIDE_MM + MultiPageRenderer.GRAYED_MARGIN_OUTSIDE_MM),
+            self.paper_height_pt - 2*Renderer.PRINT_BLEED_PT - 2*Renderer.PRINT_SAFE_MARGIN_PT - 2*commons.convert_mm_to_pt(MultiPageRenderer.GRAYED_MARGIN_TOP_BOTTOM_MM))
         ctx.fill()
         ctx.restore()
 
         # footer notice
-        content_width = self.paper_width_pt - 2*Renderer.PRINT_BLEED_DIFFERENCE_PT - commons.convert_mm_to_pt(MultiPageRenderer.GRAYED_MARGIN_INSIDE_MM + MultiPageRenderer.GRAYED_MARGIN_OUTSIDE_MM)
-        x = Renderer.PRINT_BLEED_DIFFERENCE_PT + commons.convert_mm_to_pt(MultiPageRenderer.GRAYED_MARGIN_INSIDE_MM if page % 2 else MultiPageRenderer.GRAYED_MARGIN_OUTSIDE_MM) + (content_width/2)
-        y = self.paper_height_pt - Renderer.PRINT_BLEED_DIFFERENCE_PT - Renderer.PRINT_SAFE_MARGIN_PT - commons.convert_mm_to_pt(MultiPageRenderer.GRAYED_MARGIN_TOP_BOTTOM_MM/2)
+        content_width = self.paper_width_pt - 2*Renderer.PRINT_BLEED_PT - commons.convert_mm_to_pt(MultiPageRenderer.GRAYED_MARGIN_INSIDE_MM + MultiPageRenderer.GRAYED_MARGIN_OUTSIDE_MM)
+        x = Renderer.PRINT_BLEED_PT + commons.convert_mm_to_pt(MultiPageRenderer.GRAYED_MARGIN_INSIDE_MM if page % 2 else MultiPageRenderer.GRAYED_MARGIN_OUTSIDE_MM) + (content_width/2)
+        y = self.paper_height_pt - Renderer.PRINT_BLEED_PT - Renderer.PRINT_SAFE_MARGIN_PT - commons.convert_mm_to_pt(MultiPageRenderer.GRAYED_MARGIN_TOP_BOTTOM_MM/2)
         ctx.set_source_rgb(.6,.6,.6)
         draw_utils.draw_simpletext_center(ctx, _('This page is intentionally left '\
                                             'blank.'), x, y)
@@ -751,10 +758,10 @@ class MultiPageRenderer(Renderer):
                                       self.paper_width_pt,
                                       self.paper_height_pt,
                                       transparent_background=False,
-                                      margin_inside_pt = commons.convert_mm_to_pt(MultiPageRenderer.GRAYED_MARGIN_INSIDE_MM),
-                                      margin_outside_pt = commons.convert_mm_to_pt(MultiPageRenderer.GRAYED_MARGIN_OUTSIDE_MM),
-                                      margin_top_bottom_pt = commons.convert_mm_to_pt(MultiPageRenderer.GRAYED_MARGIN_TOP_BOTTOM_MM),
-                                      print_bleed_difference_pt = Renderer.PRINT_BLEED_DIFFERENCE_PT)
+                                      margin_inside_pt = self.grayed_margin_inside_pt,
+                                      margin_outside_pt = self.grayed_margin_outside_pt,
+                                      margin_top_bottom_pt = self.grayed_margin_top_bottom_pt,
+                                      print_bleed_pt = self.print_bleed_pt)
         cairo_surface.set_page_label('Blank')
         cairo_surface.show_page()
         ctx.restore()
@@ -765,8 +772,8 @@ class MultiPageRenderer(Renderer):
         ctx.save()
 
         #ctx.translate(
-        #   commons.convert_pt_to_dots(Renderer.PRINT_SAFE_MARGIN_PT + Renderer.PRINT_BLEED_DIFFERENCE_PT + MultiPageRenderer.GRAYED_MARGIN_INSIDE_MM),
-        #   commons.convert_pt_to_dots(Renderer.PRINT_SAFE_MARGIN_PT + Renderer.PRINT_BLEED_DIFFERENCE_PT))
+        #   commons.convert_pt_to_dots(Renderer.PRINT_SAFE_MARGIN_PT + Renderer.PRINT_BLEED_PT + MultiPageRenderer.GRAYED_MARGIN_INSIDE_MM),
+        #   commons.convert_pt_to_dots(Renderer.PRINT_SAFE_MARGIN_PT + Renderer.PRINT_BLEED_PT))
         #ctx.rectangle(0, 0, self._usable_map_area_width_pt, self._usable_map_area_height_pt)
         #ctx.clip()
         
@@ -780,8 +787,8 @@ class MultiPageRenderer(Renderer):
         ctx.save()
         # we have to undo border adjustments here
         #ctx.translate(
-        #        -commons.convert_pt_to_dots(Renderer.PRINT_SAFE_MARGIN_PT + Renderer.PRINT_BLEED_DIFFERENCE_PT + Renderer.BINDING_MARGIN_PT),
-        #        -commons.convert_pt_to_dots(Renderer.PRINT_SAFE_MARGIN_PT + Renderer.PRINT_BLEED_DIFFERENCE_PT))
+        #        -commons.convert_pt_to_dots(Renderer.PRINT_SAFE_MARGIN_PT + Renderer.PRINT_BLEED_PT + Renderer.BINDING_MARGIN_PT),
+        #        -commons.convert_pt_to_dots(Renderer.PRINT_SAFE_MARGIN_PT + Renderer.PRINT_BLEED_PT))
 
         self._map_canvas = self.overview_canvas;
         for effect in self.overview_overlay_effects:
@@ -796,10 +803,10 @@ class MultiPageRenderer(Renderer):
         draw_utils.render_page_number(ctx, 3,
                                       self._usable_map_area_width_pt,
                                       self._usable_map_area_height_pt,
-                                      commons.convert_mm_to_pt(MultiPageRenderer.GRAYED_MARGIN_INSIDE_MM),
-                                      commons.convert_mm_to_pt(MultiPageRenderer.GRAYED_MARGIN_OUTSIDE_MM),
-                                      commons.convert_mm_to_pt(MultiPageRenderer.GRAYED_MARGIN_TOP_BOTTOM_MM),
-                                      Renderer.PRINT_BLEED_DIFFERENCE_PT,
+                                      self.grayed_margin_inside_pt,
+                                      self.grayed_margin_outside_pt,
+                                      self.grayed_margin_top_bottom_pt,
+                                      self.print_bleed_pt,
                                       transparent_background = True)
 
         ctx.restore()
@@ -847,8 +854,8 @@ class MultiPageRenderer(Renderer):
             # page not referenced
             return
 
-        innerbb_width = self.paper_width_pt - commons.convert_mm_to_pt(MultiPageRenderer.GRAYED_MARGIN_INSIDE_MM + MultiPageRenderer.GRAYED_MARGIN_OUTSIDE_MM) - 2*Renderer.PRINT_BLEED_DIFFERENCE_PT
-        horizontal_center = Renderer.PRINT_BLEED_DIFFERENCE_PT + commons.convert_mm_to_pt(MultiPageRenderer.GRAYED_MARGIN_INSIDE_MM if map_number % 2 else MultiPageRenderer.GRAYED_MARGIN_OUTSIDE_MM) + (innerbb_width/2)
+        innerbb_width = self.paper_width_pt - commons.convert_mm_to_pt(MultiPageRenderer.GRAYED_MARGIN_INSIDE_MM + MultiPageRenderer.GRAYED_MARGIN_OUTSIDE_MM) - 2*Renderer.PRINT_BLEED_PT
+        horizontal_center = Renderer.PRINT_BLEED_PT + commons.convert_mm_to_pt(MultiPageRenderer.GRAYED_MARGIN_INSIDE_MM if map_number % 2 else MultiPageRenderer.GRAYED_MARGIN_OUTSIDE_MM) + (innerbb_width/2)
 
         # north arrow
         for line_nb in reversed(range(current_line)):
@@ -856,7 +863,7 @@ class MultiPageRenderer(Renderer):
                 north_arrow = self.page_disposition[line_nb][current_col]
                 ctx.save()
                 ctx.translate(horizontal_center,
-                    Renderer.PRINT_BLEED_DIFFERENCE_PT + commons.convert_mm_to_pt(MultiPageRenderer.GRAYED_MARGIN_TOP_BOTTOM_MM) - self.marker_size_pt*0.3*0.5)
+                    Renderer.PRINT_BLEED_PT + commons.convert_mm_to_pt(MultiPageRenderer.GRAYED_MARGIN_TOP_BOTTOM_MM) - self.marker_size_pt*0.3*0.5)
                 self._draw_arrow(ctx, cairo_surface,
                               north_arrow + self._first_map_page_number, max_digit_number)
                 ctx.restore()
@@ -869,7 +876,7 @@ class MultiPageRenderer(Renderer):
                 ctx.save()
                 ctx.translate(horizontal_center,
                      self._usable_map_area_height_pt \
-                      - Renderer.PRINT_BLEED_DIFFERENCE_PT \
+                      - Renderer.PRINT_BLEED_PT \
                       - commons.convert_mm_to_pt(MultiPageRenderer.GRAYED_MARGIN_TOP_BOTTOM_MM)\
                       + self.marker_size_pt*0.3*0.5)
                 ctx.rotate(math.pi)
@@ -884,7 +891,7 @@ class MultiPageRenderer(Renderer):
             if self.page_disposition[current_line][col_nb] != None:
                 west_arrow = self.page_disposition[current_line][col_nb]
                 ctx.save()
-                ctx.translate(Renderer.PRINT_BLEED_DIFFERENCE_PT \
+                ctx.translate(Renderer.PRINT_BLEED_PT \
                          + commons.convert_mm_to_pt((MultiPageRenderer.GRAYED_MARGIN_INSIDE_MM if map_number % 2 else MultiPageRenderer.GRAYED_MARGIN_OUTSIDE_MM)) \
                          - self.marker_size_pt*0.3*0.5,
                     self._usable_map_area_height_pt/2)
@@ -900,7 +907,7 @@ class MultiPageRenderer(Renderer):
             if self.page_disposition[current_line][col_nb] != None:
                 east_arrow = self.page_disposition[current_line][col_nb]
                 ctx.save()
-                ctx.translate(self._usable_map_area_width_pt - Renderer.PRINT_BLEED_DIFFERENCE_PT \
+                ctx.translate(self._usable_map_area_width_pt - Renderer.PRINT_BLEED_PT \
                          - commons.convert_mm_to_pt((MultiPageRenderer.GRAYED_MARGIN_OUTSIDE_MM if map_number % 2 else MultiPageRenderer.GRAYED_MARGIN_INSIDE_MM)) \
                          + self.marker_size_pt*0.3*0.5,
                     self._usable_map_area_height_pt/2)
@@ -998,20 +1005,10 @@ class MultiPageRenderer(Renderer):
             rendered_map = canvas.get_rendered_map()
             # LOG.debug('Mapnik scale: 1/%f' % rendered_map.scale_denominator())
             # LOG.debug('Actual scale: 1/%f' % canvas.get_actual_scale())
-            
-            #ctx.identity_matrix();
-            # Prepare to draw the map at the right location
-            #if map_number % 2:
-            #    ctx.translate(
-            #        commons.convert_pt_to_dots(Renderer.PRINT_SAFE_MARGIN_PT + Renderer.BINDING_MARGIN_PT),
-            #        commons.convert_pt_to_dots(Renderer.PRINT_SAFE_MARGIN_PT))
-            #else:
-            #    ctx.translate(
-            #        commons.convert_pt_to_dots(Renderer.PRINT_SAFE_MARGIN_PT),
-            #        commons.convert_pt_to_dots(Renderer.PRINT_SAFE_MARGIN_PT))
+
             ctx.rectangle(0, 0, self._usable_map_area_width_pt, self._usable_map_area_height_pt)
             ctx.clip()
-            
+
             dest_tag = "mypage%d" % (map_number + self._first_map_page_number)
             draw_utils.anchor(ctx, dest_tag)
 
@@ -1023,14 +1020,14 @@ class MultiPageRenderer(Renderer):
 
             # Place the vertical and horizontal square labels
             ctx.save()
-            ctx.translate(Renderer.PRINT_BLEED_DIFFERENCE_PT + commons.convert_pt_to_dots(self.grayed_margin_inside_pt if map_number % 2 else self.grayed_margin_outside_pt),
-                      Renderer.PRINT_BLEED_DIFFERENCE_PT + commons.convert_pt_to_dots(self.grayed_margin_top_bottom_pt))
+            ctx.translate(Renderer.PRINT_BLEED_PT + commons.convert_pt_to_dots(self.grayed_margin_inside_pt if map_number % 2 else self.grayed_margin_outside_pt),
+                      Renderer.PRINT_BLEED_PT + commons.convert_pt_to_dots(self.grayed_margin_top_bottom_pt))
             self._draw_labels(ctx, grid,
                   commons.convert_pt_to_dots(self._usable_map_area_width_pt \
-                        - 2 * Renderer.PRINT_BLEED_DIFFERENCE_PT \
+                        - 2 * Renderer.PRINT_BLEED_PT \
                         - self.grayed_margin_inside_pt - self.grayed_margin_outside_pt),
                   commons.convert_pt_to_dots(self._usable_map_area_height_pt \
-                        - 2 * Renderer.PRINT_BLEED_DIFFERENCE_PT \
+                        - 2 * Renderer.PRINT_BLEED_PT \
                         - 2 * self.grayed_margin_top_bottom_pt),
                   commons.convert_pt_to_dots(self._grid_legend_margin_pt))
             ctx.restore()
@@ -1055,7 +1052,7 @@ class MultiPageRenderer(Renderer):
                                           self.grayed_margin_inside_pt,
                                           self.grayed_margin_outside_pt,
                                           self.grayed_margin_top_bottom_pt,
-                                          Renderer.PRINT_BLEED_DIFFERENCE_PT,
+                                          Renderer.PRINT_BLEED_PT,
                                           transparent_background = True)
             self._render_neighbour_arrows(ctx, cairo_surface, map_number,
                                           len(str(len(self.pages) + self._first_map_page_number)))
@@ -1070,7 +1067,7 @@ class MultiPageRenderer(Renderer):
                                              self.index_categories,
                                              (self.paper_width_pt, self.paper_height_pt),
                                              (self.grayed_margin_inside_pt, self.grayed_margin_outside_pt, self.grayed_margin_top_bottom_pt),
-                                             Renderer.PRINT_BLEED_DIFFERENCE_PT,
+                                             Renderer.PRINT_BLEED_PT,
                                              map_number+4)
 
         mpsir.render()

@@ -250,7 +250,7 @@ def draw_text_adjusted(ctx, text, x, y, width, height, max_char_number=None,
 
 def render_page_number(ctx, page_number, usable_area_width_pt, usable_area_height_pt,
                        margin_inside_pt, margin_outside_pt, margin_top_bottom_pt,
-                       print_bleed_difference_pt, transparent_background = True,):
+                       print_bleed_pt, transparent_background = True,):
     """
     Render page number
     """
@@ -258,21 +258,21 @@ def render_page_number(ctx, page_number, usable_area_width_pt, usable_area_heigh
     x_offset = 0
     if page_number % 2: # print at the right side of the page
         x_offset += commons.convert_pt_to_dots(usable_area_width_pt)\
-                  - commons.convert_pt_to_dots(print_bleed_difference_pt + margin_outside_pt if page_number % 2 else margin_inside_pt)
+                  - commons.convert_pt_to_dots(print_bleed_pt + margin_outside_pt if page_number % 2 else margin_inside_pt)
     y_offset = commons.convert_pt_to_dots(usable_area_height_pt)\
-             - commons.convert_pt_to_dots(margin_top_bottom_pt + print_bleed_difference_pt)
+             - commons.convert_pt_to_dots(margin_top_bottom_pt + print_bleed_pt)
     ctx.translate(x_offset, y_offset)
 
     if transparent_background:
         ctx.set_source_rgba(1, 1, 1, 0.6)
     else:
         ctx.set_source_rgba(0.8, 0.8, 0.8, 0.6)
-    ctx.rectangle(0, 0, commons.convert_pt_to_dots(print_bleed_difference_pt + (margin_inside_pt if page_number % 2 else margin_outside_pt)),
-                  commons.convert_pt_to_dots(print_bleed_difference_pt + margin_top_bottom_pt))
+    ctx.rectangle(0, 0, commons.convert_pt_to_dots(print_bleed_pt + (margin_inside_pt if page_number % 2 else margin_outside_pt)),
+                  commons.convert_pt_to_dots(print_bleed_pt + margin_top_bottom_pt))
     ctx.fill()
 
     ctx.set_source_rgba(0, 0, 0, 1)
-    x_offset = commons.convert_pt_to_dots(margin_outside_pt)/2 + (0 if page_number % 2 else commons.convert_pt_to_dots(print_bleed_difference_pt))
+    x_offset = commons.convert_pt_to_dots(margin_outside_pt)/2 + (0 if page_number % 2 else commons.convert_pt_to_dots(print_bleed_pt))
     y_offset = commons.convert_pt_to_dots(margin_top_bottom_pt)/2
     ctx.translate(x_offset, y_offset)
     draw_simpletext_center(ctx, str(page_number), 0, 0)
