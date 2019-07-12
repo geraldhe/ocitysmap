@@ -180,8 +180,11 @@ class MultiPageStreetIndexRenderer:
 
         firstPage = True
         self._draw_page_background()
-        cities = list(self.index_categories.keys())
+
+        citiesWithEntries = {k: v for k, v in self.index_categories.items() if len(v)>0} # print only cities with entries
+        cities = list(citiesWithEntries.keys())
         cities.sort()
+
         margin_top = self.print_bleed_pt + self.print_safe_margin_pt + self.margin_top_bottom_pt
         margin_top_page = margin_top
         offset_y = margin_top_page
@@ -189,7 +192,7 @@ class MultiPageStreetIndexRenderer:
         city_index = -1
         LOG.debug("%f print_bleed_pt, %f print_safe_margin_pt, %f margin_top_bottom_pt, %f margin_top" % (self.print_bleed_pt, self.print_safe_margin_pt, self.margin_top_bottom_pt, margin_top))
         page_full_available_h = self.rendering_area_h - 2*self.print_bleed_pt - 2*self.print_safe_margin_pt - 2*self.margin_top_bottom_pt
-
+        #LOG.debug(list(filter(lambda x: len(self.index_categories[cities[x]]) > 0, cities)))
         for city in cities:
             city_index = city_index + 1
             # create new page - if it is not the first one

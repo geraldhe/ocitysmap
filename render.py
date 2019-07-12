@@ -120,20 +120,26 @@ def main():
             optcnt += 1
 
     if optcnt == 0:
-        parser.error("One of --bounding-box "
-                     "or --osmids is mandatory")
-
-    if optcnt > 1:
-        parser.error("Options --bounding-box, "
-                     "or --osmids are exclusive")
+        parser.error("--bounding-box "
+                     "and/or --osmids is mandatory")
 
     # Parse config file and instanciate main object
     mapper = ocitysmap.OCitySMap(
         [options.config_file or os.path.join(os.environ["HOME"], '.ocitysmap.conf')])
 
-    # Parse bounding box arguments when given
     bbox = None
     osmids = None
+
+    # Parse OSM ids when given
+    if options.osmids:
+        try:
+            osmids = list(map(int, options.osmids.split(",")))
+            bbox = BoundingBox.parse_wkt(
+                    mapper.get_geographic_info(osmids)[0])
+        except LookupError:
+            parser.error('No such OSM id: %d' % options.osmids)
+
+    # Parse bounding box arguments when given
     if options.bbox:
         try:
             bbox = BoundingBox.parse_latlon_strtuple(options.bbox)
@@ -146,15 +152,6 @@ def main():
             parser.error('Same latitude in bounding box corners')
         if lon1 == lon2:
             parser.error('Same longitude in bounding box corners')
-
-    # Parse OSM ids when given
-    if options.osmids:
-        try:
-            osmids = list(map(int, options.osmids.split(",")))
-            bbox = BoundingBox.parse_wkt(
-                    mapper.get_geographic_info(osmids)[0])
-        except LookupError:
-            parser.error('No such OSM id: %d' % options.osmids)
 
     # Parse stylesheet (defaults to 1st one)
     if options.stylesheet is None:

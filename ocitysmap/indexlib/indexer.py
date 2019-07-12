@@ -367,7 +367,7 @@ class StreetIndex:
         """
 
         cursor = db.cursor()
-        LOG.debug("Getting streets...")
+        # LOG.debug("Getting streets...")
 
         # PostGIS >= 1.5.0 for this to work:
         query = """
@@ -401,7 +401,7 @@ from
             cursor.execute(query % {'way':'st_buffer(way, 0)'})
         sl = cursor.fetchall()
 
-        LOG.debug("Got %d streets." % len(sl))
+        #LOG.debug("Got %d streets." % len(sl))
 
         return self._convert_street_index(sl)
 
@@ -423,7 +423,7 @@ from
 
         result = []
         for catname, db_amenity, label in self._get_selected_amenities():
-            LOG.debug("Getting amenities for %s/%s..." % (catname, db_amenity))
+            #LOG.debug("Getting amenities for %s/%s..." % (catname, db_amenity))
 
             # Get the current IndexCategory object, or create one if
             # different than previous
@@ -486,8 +486,8 @@ order by amenity_name""" \
                                                                       endpoint2,
                                                                       self._page_number))
 
-            LOG.debug("Got %d amenities for %s/%s."
-                    % (len(current_category.items), catname, db_amenity))
+            #LOG.debug("Got %d amenities for %s/%s."
+            #        % (len(current_category.items), catname, db_amenity))
 
         return [category for category in result if category.items]
 
@@ -561,8 +561,8 @@ order by village_name""" \
                                                                   endpoint2,
                                                                   self._page_number))
 
-        LOG.debug("Got %d villages for %s."
-                % (len(current_category.items), 'Villages'))
+        #LOG.debug("Got %d villages for %s."
+        #        % (len(current_category.items), 'Villages'))
 
         return [category for category in result if category.items]
 

@@ -479,21 +479,42 @@ SELECT ST_AsText(ST_LongestLine(
         os.environ['PGOPTIONS'] = "-c mapnik.language=" + config.language[:2] + " -c mapnik.locality=" + config.language[:5] + " -c mapnik.country=" + config.language[3:5]
         LOG.debug("PGOPTIONS '%s'" % os.environ.get('PGOPTIONS', 'not set'))
 
+        osmid_bbox = None
+        config_bbox = None
+
         # Determine bounding box, WKT of interest - and a dict(wkt_of_interest -> name)
         if config.osmids:
-            osmid_bbox, osmid_area, config.name_to_polygon \
+            osmid_bbox_str, osmid_area, config.name_to_polygon \
                 = self.get_geographic_info(config.osmids)
+            osmid_bbox = coords.BoundingBox.parse_wkt(osmid_bbox_str)
+            #LOG.debug("BBOX: osmids given")
+            #LOG.debug(osmid_area)
 
             # Define the bbox if not already defined
             if not config.bounding_box:
                 config.bounding_box \
                     = coords.BoundingBox.parse_wkt(osmid_bbox)
 
+            LOG.debug(osmid_bbox.as_javascript("osmid_bbox", "#ff0000"))
+            LOG.debug(config.bounding_box.as_javascript("bounding-box pre", "#00ff00"))
+            osmid_bbox.crop_by(config.bounding_box)
             # Update the polygon WKT of interest
-            config.polygon_wkt = osmid_area
+            #config.polygon_wkt = osmid_area
+            config.polygon_wkt = shapely.wkt.loads(osmid_area).intersection(shapely.wkt.loads(config.bounding_box.as_wkt())).wkt
+            config.bounding_box = osmid_bbox
+            LOG.debug(config.bounding_box.as_javascript("osmid_bbox post1", "#0000ff"))
+            LOG.debug(config.polygon_wkt)
+            
+            config.bounding_box = coords.BoundingBox.parse_wkt(config.polygon_wkt)
+            LOG.debug(config.bounding_box.as_javascript("osmid_bbox post2", "#0009ff"))
         else:
             # No OSM ID provided => use specified bbox
             config.polygon_wkt = config.bounding_box.as_wkt()
+
+            #if config.bounding_box: # merge with 
+            #    LOG.debug("bounding box AND osmids is given")
+            #    LOG.debug(config.bounding_box.as_javascript(name="bbox"))
+            #    LOG.debug(osmid_bbox.as_javascript(name="osmids"))
 
         # Make sure we have a bounding box
         assert config.bounding_box is not None

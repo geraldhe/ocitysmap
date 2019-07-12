@@ -186,6 +186,27 @@ class BoundingBox:
         self._lat2 = min(self._lat2, bbox._lat2)
         self._long1 = min(self._long1, bbox._long1)
         self._long2 = max(self._long2, bbox._long2)
+        
+    def crop_by(self, bbox):
+        if (((bbox.get_left() >= self.get_left() and bbox.get_left() <= self.get_right()) or (bbox.get_right() >= self.get_left() and bbox.get_right() <= self.get_right())) \
+            and bbox.get_top() >= self.get_top() and bbox.get_bottom() <= self.get_bottom()): # bbox must fully contain self in height
+            # Cut in portrait
+            self._long1 = max(self.get_left(), bbox.get_left())
+            self._long2 = min(self.get_right(), bbox.get_right())
+        elif (((bbox.get_top() <= self.get_top() and bbox.get_top() >= self.get_bottom()) \
+            or (bbox.get_bottom() <= self.get_top() and bbox.get_bottom() >= self.get_bottom())) \
+            and bbox.get_left() <= self.get_left() and bbox.get_right() >= self.get_right()):
+            # bbox.get_top is between upper and lower bound of self
+            # bbox.get_bottom is between upper and lower bound of self
+            # bbox must fully contain self in width
+            
+            # => Cut in landscape
+            self._lat1 = min(self.get_top(), bbox.get_top())
+            self._lat2 = max(self.get_bottom(), bbox.get_bottom())
+        else:
+            print(self.as_javascript("osmid", "#ff0000"))
+            print(bbox.as_javascript("bbox", "#00ff00"))
+            raise Exception('the bbox must contain the osmids area in one dimension')
 
     @staticmethod
     def _ptstr(point):
