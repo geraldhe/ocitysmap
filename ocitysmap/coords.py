@@ -150,6 +150,18 @@ class BoundingBox:
         # create bounding box object from detected GPX bounds plus 5% extra margin
         return BoundingBox(handler.min_lat - dlat, handler.min_lon - dlon, handler.max_lat + dlat, handler.max_lon + dlon)
 
+    def get_left(self):
+        return self._long1
+
+    def get_right(self):
+        return self._long2
+
+    def get_top(self):
+        return self._lat1
+
+    def get_bottom(self):
+        return self._lat2
+
     def get_top_left(self):
         return (self._lat1, self._long1)
 

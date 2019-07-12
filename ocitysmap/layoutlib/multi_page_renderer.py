@@ -1079,20 +1079,14 @@ class MultiPageRenderer(Renderer):
     def get_compatible_output_formats():
         return [ "pdf" ]
 
-    # In multi-page mode, we only accept A4, A5 and US letter as paper
-    # sizes. The goal is to render booklets, not posters.
-    # The default paper size is A4 portrait
-    # TODO make separate format lists so that things don't break again on name changes
     @staticmethod
     def get_compatible_paper_sizes(bounding_box,
+                                   renderer_context,
                                    scale=Renderer.DEFAULT_MULTIPAGE_SCALE,
                                    index_position=None, hsplit=1, vsplit=1):
         valid_sizes = []
-        acceptable_formats = [ 'Din A5', 'Din A4', 'US letter' ]
-        for sz in ocitysmap.layoutlib.PAPER_SIZES:
-            # Skip unsupported paper formats
-            if sz[0] not in acceptable_formats:
-                continue
+        LOG.warning("getting multipage paper size options")
+        for sz in renderer_context.get_all_paper_sizes('multipage'):
             valid_sizes.append((sz[0], sz[1], sz[2], True, True, sz[0] == 'Din A4'))
         return valid_sizes
 

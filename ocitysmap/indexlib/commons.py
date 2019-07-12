@@ -28,6 +28,9 @@ gi.require_version('Pango', '1.0')
 from gi.repository import GObject, Pango
 import sys
 
+import logging
+LOG = logging.getLogger('ocitysmap')
+
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 import draw_utils
 

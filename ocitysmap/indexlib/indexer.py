@@ -33,6 +33,7 @@ import psycopg2
 import re
 import json
 from functools import cmp_to_key
+from natsort import natsorted
 
 import psycopg2.extensions
 # compatibility with django: see http://code.djangoproject.com/ticket/5996
@@ -174,6 +175,9 @@ class StreetIndex:
     def categories(self):
         return self._categories
 
+    def add_category(self, name, items=None, is_street=False):
+        self._categories.append(commons.StreetIndexCategory(name, items, is_street))
+
     def apply_grid(self, grid):
         """
         Update the location_str field of the streets and amenities by
@@ -205,7 +209,7 @@ class StreetIndex:
                 continue
             grouped_items = []
             sort_key = lambda item:(item.label, item.location_str)
-            items = sorted(category.items, key=sort_key)
+            items = natsorted(category.items, key=sort_key)
             for label, same_items in groupby(items, key=sort_key):
                 grouped_items.append(next(same_items))
             category.items = grouped_items

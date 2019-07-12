@@ -21,16 +21,3 @@
 
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-# Portrait paper sizes in milimeters
-PAPER_SIZES = [('Din A4', 210, 297),
-               ('Din A3', 297, 420),
-               ('Din A2', 420, 594),
-               ('Din A1', 594, 841),
-               ('Din A0', 841, 1189),
-               ('2x A0', 1189, 1682),
-
-               ('US letter', 216, 279),
-
-               ('Best fit', None, None),
-               ]

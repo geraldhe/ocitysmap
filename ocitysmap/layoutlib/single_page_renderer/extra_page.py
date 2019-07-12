@@ -18,7 +18,7 @@ class SinglePageRendererIndexExtraPage(SinglePageRenderer):
         SinglePageRenderer.__init__(self, db, rc, tmpdir, dpi, file_prefix, 'extra_page')
 
     @staticmethod
-    def get_compatible_paper_sizes(bounding_box,
+    def get_compatible_paper_sizes(bounding_box, render_context,
                                    scale=Renderer.DEFAULT_SCALE):
         """Returns a list of the compatible paper sizes for the given bounding
         box. The list is sorted, smaller papers first, and a "custom" paper
@@ -26,6 +26,7 @@ class SinglePageRendererIndexExtraPage(SinglePageRenderer):
 
         Args:
             bounding_box (coords.BoundingBox): the map geographic bounding box.
+            paper_sizes (list): the complete list of configured paper sizes
             scale (int): minimum mapnik scale of the map.
 
         Returns a list of tuples (paper name, width in mm, height in
@@ -33,5 +34,5 @@ class SinglePageRendererIndexExtraPage(SinglePageRenderer):
         portrait mode.
         """
         return SinglePageRenderer._generic_get_compatible_paper_sizes(
-            bounding_box, scale, None)
+            bounding_box, render_context.get_all_paper_sizes(), scale, None)
 

@@ -33,14 +33,10 @@ import ocitysmap
 import ocitysmap.layoutlib.renderers
 from coords import BoundingBox
 
+LOG = logging.getLogger('ocitysmap')
+
 def main():
     logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
-
-    # Paper sizes, sorted in increasing widths
-    KNOWN_PAPER_SIZE_NAMES = \
-        list(map(lambda p: p[0],
-            sorted(ocitysmap.layoutlib.PAPER_SIZES,
-                   key=lambda p: int(p[1] or 0))))
 
     # Known renderer names
     KNOWN_RENDERERS_NAMES = \
@@ -66,7 +62,7 @@ def main():
                       action='append')
     parser.add_option('-t', '--title', dest='output_title', metavar='TITLE',
                       help='specify the title displayed in the output files.',
-                      default="My Map")
+                      default="")
     parser.add_option('--osmids', dest='osmids', metavar='OSMIDS',
                       help='OSM IDs representing the polygon of the cities '
                       'to render.', type="string"),
@@ -97,7 +93,8 @@ def main():
                      )
     parser.add_option('--paper-format', metavar='FMT',
                       help='set the output paper format. Either "default", '
-                           'or one of %s.' % ', '.join(KNOWN_PAPER_SIZE_NAMES),
+                           '"Best fit", or one of the paper size names '
+                           'defined in the configuration file',
                       default='default')
     parser.add_option('--orientation', metavar='ORIENTATION',
                       help='set the output paper orientation. Either '
@@ -205,21 +202,23 @@ def main():
             parser.error("Output format %s not supported by layout %s" %
                          (format, cls_renderer.name))
 
-    # Parse paper size
-    if (options.paper_format != 'default') \
-            and options.paper_format not in KNOWN_PAPER_SIZE_NAMES:
-        parser.error("Invalid paper format. Allowed formats = default, %s"
-                     % ', '.join(KNOWN_PAPER_SIZE_NAMES))
+    # check paper-format option if given
+    if options.paper_format and options.paper_format != 'default':
+        paper_format_names = mapper.get_all_paper_size_names()
+        if not options.paper_format in paper_format_names:
+            parser.error("Requested paper format %s not found. Compatible paper formats are:\n\t%s."
+                         % ( options.paper_format,
+                             ', '.join(paper_format_names)))
 
     # Determine actual paper size
-    compat_papers = cls_renderer.get_compatible_paper_sizes(bbox)
+    compat_papers = cls_renderer.get_compatible_paper_sizes(bbox, mapper.get_all_paper_sizes())
     if not compat_papers:
         parser.error("No paper size compatible with this rendering.")
 
     paper_descr = None
     if options.paper_format == 'default':
         for p in compat_papers:
-            if p[5]:
+            if p[5]: # TODO: why 5?
                 paper_descr = p
                 break
     else:
@@ -229,8 +228,8 @@ def main():
                 paper_descr = p
                 break
     if not paper_descr:
-        parser.error("Requested paper format not compatible with rendering. Compatible paper formats are: %s."
-             % ', '.join(map(lambda p: "%s (%.1fx%.1fcm²)"
+        parser.error("Requested paper format not compatible with rendering. Compatible paper formats are:\n\t%s."
+             % ',\n\t'.join(map(lambda p: "%s (%.1fx%.1fcm²)"
                 % (p[0], p[1]/10., p[2]/10.),
                 compat_papers)))
     assert paper_descr[3] or paper_descr[4] # Portrait or Landscape accepted

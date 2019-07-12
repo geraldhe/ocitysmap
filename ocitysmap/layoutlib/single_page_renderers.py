@@ -53,8 +53,6 @@ from ocitysmap.maplib.map_canvas import MapCanvas
 from ocitysmap.stylelib import GpxStylesheet, UmapStylesheet
 
 
-from colour import Color
-
 import time
 
 
@@ -86,6 +84,8 @@ class SinglePageRenderer(Renderer):
         """
 
         Renderer.__init__(self, db, rc, tmpdir, dpi)
+
+        self.file_prefix = file_prefix
 
         # Prepare the index
         if rc.poi_file:
@@ -204,13 +204,6 @@ class SinglePageRenderer(Renderer):
         self.grid = self._create_grid(self._map_canvas, dpi)
         if index_position:
             self._apply_grid(self.grid, self._map_canvas)
-
-        # Update the street_index to reflect the grid's actual position
-        if self.grid and self.street_index and index_position is not None:
-            self.street_index.apply_grid(self.grid)
-
-            # Dump the CSV street index
-            self.street_index.write_to_csv(rc.title, '%s.csv' % file_prefix)
 
         # Commit the internal rendering stack of the map
         self._map_canvas.render()
@@ -430,51 +423,6 @@ class SinglePageRenderer(Renderer):
         PangoCairo.show_layout(ctx, layout)
         ctx.restore()
 
-    def _marker(self, color, txt, lat, lon, ctx, dpi):
-
-        marker_path = os.path.abspath(os.path.join(
-            os.path.dirname(__file__), '..', '..', 'images', 'marker.svg'))
-
-        fp = open(marker_path,'r')
-        data = fp.read()
-        fp.close()
-
-        if color[0] != '#':
-            c = Color(color);
-            color = c.hex_l
-
-        data = data.replace('#000000', color)
-
-        rsvg = Rsvg.Handle()
-        svg = rsvg.new_from_data(data.encode())
-
-        x,y = self._latlon2xy(lat, lon, dpi)
-
-        scale = 50.0 / svg.props.height;
-
-        x-= svg.props.width  * scale/2
-        y-= svg.props.height * scale
-
-        ctx.save()
-        ctx.translate(x, y)
-
-        ctx.scale(scale, scale)
-        svg.render_cairo(ctx)
-
-        pc = PangoCairo.create_context(ctx)
-        layout = PangoCairo.create_layout(ctx)
-        fd = Pango.FontDescription('Droid Sans')
-        fd.set_size(Pango.SCALE)
-        layout.set_font_description(fd)
-        layout.set_text(txt, -1)
-        draw_utils.adjust_font_size(layout, fd, svg.props.width/3, svg.props.width/3)
-        ink, logical = layout.get_extents()
-        ctx.translate(svg.props.width/2 - ink.width * scale/50, svg.props.height/5)
-        PangoCairo.update_layout(ctx, layout)
-        PangoCairo.show_layout(ctx, layout)
-
-        ctx.restore()
-
     def render(self, cairo_surface, dpi, osm_date):
         """Renders the map, the index and all other visual map features on the
         given Cairo surface.
@@ -576,9 +524,26 @@ class SinglePageRenderer(Renderer):
                              title_margin_dots, 'Droid Sans Bold')
             ctx.restore()
 
+        # apply effect overlays
+        ctx.save()
+        ctx.rectangle(map_coords_dots[0], map_coords_dots[1], map_coords_dots[2], map_coords_dots[3])
+        ctx.clip()
+
+        for effect in self._overlay_effects:
+          self.render_plugin(effect, ctx)
+        ctx.restore()
+
         ##
         ## Draw the index, when applicable
         ##
+
+        # Update the street_index to reflect the grid's actual position
+        if self.grid and self.street_index and self.index_position is not None:
+            self.street_index.apply_grid(self.grid)
+
+            # Dump the CSV street index
+            self.street_index.write_to_csv(self.rc.title, '%s.csv' % self.file_prefix)
+
         if self._index_renderer and self._index_area:
             ctx.save()
 
@@ -624,15 +589,6 @@ class SinglePageRenderer(Renderer):
                                     osm_date=osm_date)
         ctx.restore()
 
-        # apply effect overlays
-        ctx.save()
-        ctx.rectangle(map_coords_dots[0], map_coords_dots[1], map_coords_dots[2], map_coords_dots[3])
-        ctx.clip()
-        
-        for effect in self._overlay_effects:
-          self.render_plugin(effect, ctx)
-        ctx.restore()
-
         if self._has_multipage_format() and self.index_position == 'extra_page':
             cairo_surface.show_page()
 
@@ -668,7 +624,9 @@ class SinglePageRenderer(Renderer):
 
     @staticmethod
     def _generic_get_compatible_paper_sizes(bounding_box,
-                                            scale=Renderer.DEFAULT_SCALE, index_position = None):
+                                            paper_sizes,
+                                            scale=Renderer.DEFAULT_SCALE,
+                                            index_position = None):
         """Returns a list of the compatible paper sizes for the given bounding
         box. The list is sorted, smaller papers first, and a "custom" paper
         matching the dimensions of the bounding box is added at the end.
@@ -733,7 +691,8 @@ class SinglePageRenderer(Renderer):
         # Test both portrait and landscape orientations when checking for paper
         # sizes.
         valid_sizes = []
-        for name, w, h in ocitysmap.layoutlib.PAPER_SIZES:
+        for name, w, h in paper_sizes:
+            LOG.debug("is %s compatible" % name)
             if w is None: 
                 continue
 

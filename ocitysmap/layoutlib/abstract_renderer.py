@@ -39,6 +39,7 @@ import os
 import re
 import shapely.wkt
 import sys
+from colour import Color
 
 from . import commons
 from ocitysmap.maplib.map_canvas import MapCanvas
@@ -382,6 +383,51 @@ class Renderer:
         x+= (dpi/72.0) * self._map_coords[0]
 
         return x,y
+
+    def _marker(self, color, txt, lat, lon, ctx, dpi):
+
+        marker_path = os.path.abspath(os.path.join(
+            os.path.dirname(__file__), '..', '..', 'images', 'marker.svg'))
+
+        fp = open(marker_path,'r')
+        data = fp.read()
+        fp.close()
+
+        if color[0] != '#':
+            c = Color(color);
+            color = c.hex_l
+
+        data = data.replace('#000000', color)
+
+        rsvg = Rsvg.Handle()
+        svg = rsvg.new_from_data(data.encode())
+
+        x,y = self._latlon2xy(lat, lon, dpi)
+
+        scale = (50.0  / svg.props.height) * (dpi / 72.0)
+
+        x-= svg.props.width  * scale/2
+        y-= svg.props.height * scale
+
+        ctx.save()
+        ctx.translate(x, y)
+
+        ctx.scale(scale, scale)
+        svg.render_cairo(ctx)
+
+        pc = PangoCairo.create_context(ctx)
+        layout = PangoCairo.create_layout(ctx)
+        fd = Pango.FontDescription('Droid Sans')
+        fd.set_size(Pango.SCALE)
+        layout.set_font_description(fd)
+        layout.set_text(txt, -1)
+        draw_utils.adjust_font_size(layout, fd, svg.props.width/3, svg.props.width/3)
+        ink, logical = layout.get_extents()
+        ctx.translate(svg.props.width/2 - logical.width / svg.props.height, svg.props.height/5)
+        PangoCairo.update_layout(ctx, layout)
+        PangoCairo.show_layout(ctx, layout)
+
+        ctx.restore()
 
 
 
