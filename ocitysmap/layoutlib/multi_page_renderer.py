@@ -1086,7 +1086,8 @@ class MultiPageRenderer(Renderer):
                                    index_position=None, hsplit=1, vsplit=1):
         valid_sizes = []
         LOG.warning("getting multipage paper size options")
-        for sz in renderer_context.get_all_paper_sizes('multipage'):
+        LOG.warning(renderer_context)
+        for sz in renderer_context: #.get_all_paper_sizes('multipage'):
             valid_sizes.append((sz[0], sz[1], sz[2], True, True, sz[0] == 'Din A4'))
         return valid_sizes
 
