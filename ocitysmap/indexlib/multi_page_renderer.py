@@ -127,8 +127,8 @@ class MultiPageStreetIndexRenderer:
             self.ctx.fill()
 
         # text
-        self.ctx.set_source_rgb(0.0, 0.0, 0.0)
-        self.ctx.translate(0, self.print_bleed_pt) # TODO: correct fheight/4
+        self.ctx.set_source_rgb(0.72, 0.055, 0.047)
+        self.ctx.translate(0, self.print_bleed_pt)
         draw_utils.draw_text_center(self.ctx, pc, layout, fascent, textblock_height, margin_left, baseline_y + (textblock_height / 2 * 1.1), text) #baseline_y
         self.ctx.restore()
 
