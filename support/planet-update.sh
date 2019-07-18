@@ -3,14 +3,14 @@
 BASE_PATH=${HOME}/maposmatic
 
 # Name of the PostgreSQL database to connect to.
-DB_NAME=maposmatic
+DB_NAME=gis
 
 LOG_FILE=${BASE_PATH}/planet-update.log
 PID_FILE=${BASE_PATH}/planet-update.pid
 
 # Path to the osm2pgsql utility and default import style.
 OSM2PGSQL=osm2pgsql
-OSM2PGSQL_STYLE=/usr/share/osm2pgsql/default.style
+OSM2PGSQL_STYLE=/home/maposmatic/hstore-only.style
 
 # Path to the osmosis utility.
 OSMOSIS=osmosis
@@ -92,7 +92,7 @@ rels=`zgrep '<rel' ${CURRENT_OSC} | wc -l`
 log "Expecting Node("$((${nodes}/1000))"k) Way("$((${ways}/1000))"k) Relation("$((${rels}/1000))"k)"
 
 log "Importing diff..."
-if ! ${OSM2PGSQL} -a -k -s -S ${OSM2PGSQL_STYLE} -C 5000 --cache-strategy=sparse -d ${DB_NAME} -H localhost -U maposmatic ${CURRENT_OSC} 1>&2 2>> "${LOG_FILE}" ; then
+if ! ${OSM2PGSQL} -a --hstore-all --merc --prefix=planet_osm_hstore -s -S ${OSM2PGSQL_STYLE} -C 5000 --cache-strategy=sparse --tag-transform-script=/home/maposmatic/openstreetmap-carto.lua -d ${DB_NAME} -H localhost -U maposmatic ${CURRENT_OSC} 1>&2 2>> "${LOG_FILE}" ; then
   error "Osm2pgsql error. Update failed!"
   exit 3
 fi
