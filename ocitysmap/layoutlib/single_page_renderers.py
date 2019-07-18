@@ -170,7 +170,7 @@ class SinglePageRenderer(Renderer):
             float(self._map_coords[2]),  # W
             float(self._map_coords[3]),  # H
             dpi,
-            rc.osmid != None )
+            rc.osmids != None )
 
         # Prepare overlay styles for uploaded files
         self._overlays = copy(self.rc.overlays)
