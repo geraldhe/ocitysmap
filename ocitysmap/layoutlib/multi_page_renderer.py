@@ -1087,8 +1087,8 @@ class MultiPageRenderer(Renderer):
         valid_sizes = []
         LOG.warning("getting multipage paper size options")
         LOG.warning(renderer_context)
-        for sz in renderer_context: #.get_all_paper_sizes('multipage'):
-            valid_sizes.append((sz[0], sz[1], sz[2], True, True, sz[0] == 'Din A4'))
+        for sz in renderer_context.get_all_paper_sizes('multipage'):
+            valid_sizes.append((sz[0], sz[1], sz[2], True, True, sz[0] == 'DinA4'))
         return valid_sizes
 
     def _draw_overview_labels(self, ctx, map_canvas, overview_grid,

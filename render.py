@@ -208,7 +208,7 @@ def main():
                              ', '.join(paper_format_names)))
 
     # Determine actual paper size
-    compat_papers = cls_renderer.get_compatible_paper_sizes(bbox, mapper.get_all_paper_sizes())
+    compat_papers = cls_renderer.get_compatible_paper_sizes(bbox, mapper)
     if not compat_papers:
         parser.error("No paper size compatible with this rendering.")
 
