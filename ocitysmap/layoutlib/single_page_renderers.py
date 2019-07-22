@@ -22,8 +22,6 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import print_function
-
 import os
 from string import Template
 import cairo
@@ -99,19 +97,25 @@ class SinglePageRenderer(Renderer):
             LOG.warning("Designated area leads to an empty index")
             self.street_index = None
 
+        self.index_position = index_position
+
+        # grid marker offset (originally used for solid grid frame,
+        # now just for the letter/number overlay offset inside the map)
         self._grid_legend_margin_pt = \
             min(Renderer.GRID_LEGEND_MARGIN_RATIO * self.paper_width_pt,
                 Renderer.GRID_LEGEND_MARGIN_RATIO * self.paper_height_pt)
 
-        self.index_position = index_position
-
+        # reserve space for the page title if given
         if self.rc.title:
             self._title_margin_pt = 0.05 * self.paper_height_pt
         else:
             self._title_margin_pt = 0
 
+        # reserve space for the page footer
         self._copyright_margin_pt = 0.03 * self.paper_height_pt
 
+        # calculate remaining usable paper space after taking header
+        # and footer into account
         self._usable_area_width_pt = (self.paper_width_pt -
                                       2 * Renderer.PRINT_SAFE_MARGIN_PT)
         self._usable_area_height_pt = (self.paper_height_pt -
@@ -183,13 +187,18 @@ class SinglePageRenderer(Renderer):
         if self.rc.umap_file:
             self._overlays.append(UmapStylesheet(self.rc.umap_file, self.tmpdir))
 
+        # add special POI marker overlay if a POI file is given
+        # TODO: refactor this special case
+        if self.rc.poi_file:
+            self._overlay_effects.append(self.get_plugin('poi_markers'))
+
         # Prepare map overlays
         self._overlay_canvases = []
         self._overlay_effects  = []
         for overlay in self._overlays:
             path = overlay.path.strip()
             if path.startswith('internal:'):
-                self._overlay_effects.append(path.lstrip('internal:'))
+                self._overlay_effects.append(self.get_plugin(path.lstrip('internal:')))
             else:
                 self._overlay_canvases.append(MapCanvas(overlay,
                                               self.rc.bounding_box,
@@ -197,17 +206,13 @@ class SinglePageRenderer(Renderer):
                                               float(self._map_coords[3]),  # H
                                               dpi))
 
-        if self.rc.poi_file:
-            self._overlay_effects.append('poi_markers')
-
         # Prepare the grid
         self.grid = self._create_grid(self._map_canvas, dpi)
-        if index_position:
+        if index_position: # only show grid if an actual index refers to it
             self._apply_grid(self.grid, self._map_canvas)
 
         # Commit the internal rendering stack of the map
         self._map_canvas.render()
-
         for overlay_canvas in self._overlay_canvases:
            overlay_canvas.render()
 
@@ -236,6 +241,7 @@ class SinglePageRenderer(Renderer):
                                         self.paper_width_pt,
                                         self.paper_height_pt)
 
+        # calculate the area required for the index
         if index_position == 'side':
             index_max_width_pt \
                 = self.MAX_INDEX_OCCUPATION_RATIO * self._usable_area_width_pt
@@ -291,7 +297,7 @@ class SinglePageRenderer(Renderer):
 
         # Title background
         ctx.save()
-        ctx.set_source_rgb(0.8, 0.9, 0.96)
+        ctx.set_source_rgb(0.8, 0.9, 0.96) # TODO: make title bar color configurable?
         ctx.rectangle(0, 0, w_dots, h_dots)
         ctx.fill()
         ctx.restore()
@@ -309,6 +315,7 @@ class SinglePageRenderer(Renderer):
         ctx.restore()
 
         # Retrieve and paint the extra logo
+        # TODO: 
         logo_width2 = 0
         if self.rc.poi_file:
             ctx.save()
@@ -327,8 +334,10 @@ class SinglePageRenderer(Renderer):
         pc = PangoCairo.create_context(ctx)
         layout = PangoCairo.create_layout(ctx)
         layout.set_width(int((w_dots - 0.1*w_dots - logo_width - logo_width2) * Pango.SCALE))
-        if not self.rc.i18n.isrtl(): layout.set_alignment(Pango.Alignment.LEFT)
-        else:                        layout.set_alignment(Pango.Alignment.RIGHT)
+        if not self.rc.i18n.isrtl():
+            layout.set_alignment(Pango.Alignment.LEFT)
+        else:
+            layout.set_alignment(Pango.Alignment.RIGHT)
         fd = Pango.FontDescription(font_face)
         fd.set_size(Pango.SCALE)
         layout.set_font_description(fd)
@@ -437,8 +446,10 @@ class SinglePageRenderer(Renderer):
         # First determine some useful drawing parameters
         safe_margin_dots \
             = commons.convert_pt_to_dots(Renderer.PRINT_SAFE_MARGIN_PT, dpi)
+
         usable_area_width_dots \
             = commons.convert_pt_to_dots(self._usable_area_width_pt, dpi)
+
         usable_area_height_dots \
             = commons.convert_pt_to_dots(self._usable_area_height_pt, dpi)
 
@@ -487,6 +498,7 @@ class SinglePageRenderer(Renderer):
                 LOG.debug("Excluding layer: %s" % layer.name)
                 layer.status = False
 
+        # now perform the actual drawing
         mapnik.render(rendered_map, ctx, scale_factor, 0, 0)
         ctx.restore()
 
@@ -494,7 +506,7 @@ class SinglePageRenderer(Renderer):
         for overlay_canvas in self._overlay_canvases:
             ctx.save()
             rendered_overlay = overlay_canvas.get_rendered_map()
-            LOG.debug('Overlay:')
+            LOG.debug('Overlay:') # TODO: overlay name
             mapnik.render(rendered_overlay, ctx, scale_factor, 0, 0)
             ctx.restore()
 
@@ -507,7 +519,7 @@ class SinglePageRenderer(Renderer):
                                                          dpi))
         ctx.restore()
 
-        # Draw a rectangle around the map
+        # Draw a rectangle frame around the map
         ctx.save()
         ctx.set_line_width(1)
         ctx.rectangle(map_coords_dots[0], map_coords_dots[1], map_coords_dots[2], map_coords_dots[3])
@@ -524,13 +536,14 @@ class SinglePageRenderer(Renderer):
                              title_margin_dots, 'Droid Sans Bold')
             ctx.restore()
 
-        # apply effect overlays
+        # make sure that plugins do not render outside the actual map area
         ctx.save()
         ctx.rectangle(map_coords_dots[0], map_coords_dots[1], map_coords_dots[2], map_coords_dots[3])
         ctx.clip()
 
+        # apply effect plugin overlays
         for effect in self._overlay_effects:
-          self.render_plugin(effect, ctx)
+            effect.render(self, ctx)
         ctx.restore()
 
         ##
@@ -562,7 +575,7 @@ class SinglePageRenderer(Renderer):
 
             ctx.restore()
 
-            # Also draw a rectangle
+            # Also draw a rectangle frame around the index
             ctx.save()
             ctx.set_line_width(1)
             ctx.rectangle(commons.convert_pt_to_dots(self._index_area.x, dpi),
@@ -589,7 +602,8 @@ class SinglePageRenderer(Renderer):
                                     osm_date=osm_date)
         ctx.restore()
 
-        if self._has_multipage_format() and self.index_position == 'extra_page':
+        # render index on 2nd page if requested, and output format supports it
+        if self.index_position == 'extra_page' and self._has_multipage_format():
             cairo_surface.show_page()
 
             # We use a fake vector device to determine the actual

@@ -24,11 +24,6 @@
 
 import logging
 
-# Importing mapnik2 raises a DeprecationWarning as of mapnik
-# commit 14700dba. As mapnik 2.1 (or git version with support for
-# placement-type="simple") is required for OCitySMap (see INSTALL),
-# instead of importing mapnik2, we import mapnik and assert it isn't
-# an old version.
 import mapnik
 assert mapnik.mapnik_version() >= 300000, \
     "Mapnik module version %s is too old, see ocitysmap's INSTALL " \
