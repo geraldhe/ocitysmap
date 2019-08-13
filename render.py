@@ -66,9 +66,12 @@ def main():
     parser.add_option('--osmids', dest='osmids', metavar='OSMIDS',
                       help='OSM IDs representing the polygon of the cities '
                       'to render.', type="string"),
-    parser.add_option('-b', '--bounding-box', dest='bbox',  nargs=2,
-                      metavar='LAT1,LON1 LAT2,LON2',
-                      help='bounding box (EPSG: 4326).')
+    parser.add_option('-a', '--add-polys', dest='addpolys',
+                      metavar='ADD_WKTPOLY',
+                      help='add Polygon(s) (WktString).')
+    parser.add_option('-r', '--remove-polys', dest='subpolys',
+                      metavar='REMOVE_WKTPOLY',
+                      help='remove polygon(s) (WktString).')
     parser.add_option('-L', '--language', dest='language',
                       metavar='LANGUAGE_CODE',
                       help='language to use when generating the index '
@@ -113,14 +116,14 @@ def main():
         parser.print_help()
         return 1
 
-    # Make sure either -b or -c is given
+    # Make sure either --add-polys or --osmids is given
     optcnt = 0
-    for var in options.bbox, options.osmids:
+    for var in options.addpolys, options.osmids:
         if var:
             optcnt += 1
 
     if optcnt == 0:
-        parser.error("--bounding-box "
+        parser.error("--add-polys "
                      "and/or --osmids is mandatory")
 
     # Parse config file and instanciate main object
@@ -140,18 +143,18 @@ def main():
             parser.error('No such OSM id: %d' % options.osmids)
 
     # Parse bounding box arguments when given
-    if options.bbox:
-        try:
-            bbox = BoundingBox.parse_latlon_strtuple(options.bbox)
-        except ValueError:
-            parser.error('Invalid bounding box!')
-        # Check that latitude and langitude are different
-        lat1, lon1 = bbox.get_top_left()
-        lat2, lon2 = bbox.get_bottom_right()
-        if lat1 == lat2:
-            parser.error('Same latitude in bounding box corners')
-        if lon1 == lon2:
-            parser.error('Same longitude in bounding box corners')
+    #if options.bbox:
+    #    try:
+    #        bbox = BoundingBox.parse_latlon_strtuple(options.bbox)
+    #    except ValueError:
+    #        parser.error('Invalid bounding box!')
+    #    # Check that latitude and langitude are different
+    #    lat1, lon1 = bbox.get_top_left()
+    #    lat2, lon2 = bbox.get_bottom_right()
+    #    if lat1 == lat2:
+    #        parser.error('Same latitude in bounding box corners')
+    #    if lon1 == lon2:
+    #        parser.error('Same longitude in bounding box corners')
 
     # Parse stylesheet (defaults to 1st one)
     if options.stylesheet is None:
@@ -257,6 +260,12 @@ def main():
     else:
         rc.paper_width_mm  = paper_descr[2]
         rc.paper_height_mm = paper_descr[1]
+
+    if options.addpolys:
+        rc.addpolys = options.addpolys
+
+    if options.subpolys:
+        rc.subpolys = options.subpolys
 
     # Go !...
     mapper.render(rc, cls_renderer.name, options.output_formats,

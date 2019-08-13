@@ -1,0 +1,203 @@
+<!--
+
+    This short HTML page is helpful to debug bounding box and wkt-string
+    related problems, by visualizing it on a slippy
+    map. Many bounding boxes can be added using the BoundingBox()
+    function.
+
+    Note that the OcitySMap BoundingBox object has a .as_javascript()
+    method that directly generates a string that is suitable for
+    copy/paste into this file.
+-->
+
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>ocitysmap: debug map content</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.3.4/dist/leaflet.css"
+      integrity="sha512-puBpdR0798OZvTTbP4A8Ix/l+A4dHDD0DGqYW6RQ+9jxkRFclaxxQb/SJAWZfWAkuyeQUytO7+7N4QKrDh+drA=="
+      crossorigin=""/>
+    <!-- Make sure you put this AFTER Leaflet's CSS -->
+    <script src="https://unpkg.com/leaflet@1.3.4/dist/leaflet.js"
+      integrity="sha512-nMMmRyTVoLYqjP9hrbed9S+FzjZHW5gY1TWCHA5ckwXZBadntCNs8kEqAWdrb9O7rxbCaA4lKTIWjDXZxflOcA=="
+      crossorigin=""></script>
+    <script src="https://unpkg.com/wellknown@0.5.0/wellknown.js"
+      integrity="sha384-gDwal0Fqc2yv/VOiQQe5/zBkhAqZ6D7OZVIoydQvOm0dZEFhWP2U4lR9ir798wH7"
+      crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/leaflet-editable@1.2.0/src/Leaflet.Editable.js"
+      integrity="sha384-pTfDiyc6TOMIl5e4Jo3XeZj7HAvuZk7XXeorhQ9YCzfxYhP6q5CVxwcyjvq/G8R8"
+      crossorigin="anonymous"></script>
+  </head>
+  <body>
+    <div id="map" style="width: 100%; height: 600px"></div>
+    <script>
+  function BoundingBox(lat1, lng1, lat2, lng2, str, color) {
+    var p1 = new L.LatLng(lat1, lng1),
+    p2 = new L.LatLng(lat1, lng2),
+    p3 = new L.LatLng(lat2, lng2),
+    p4 = new L.LatLng(lat2, lng1),
+    polygonPoints = [p1, p2, p3, p4, p1],
+    polygon = new L.Polygon(polygonPoints, color);
+
+    polygon.bindPopup(str);
+    map.addLayer(polygon);
+  }
+
+document.addEventListener('DOMContentLoaded', (event) => {
+  var map = new L.Map('map', {editable: true});
+
+  // create the tile layer with correct attribution
+  var osmUrl='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+  var osmAttrib='Map data © <a href="https://openstreetmap.org">OpenStreetMap</a> contributors';
+  var osm = new L.TileLayer(osmUrl, {minZoom: 8, maxZoom: 25, attribution: osmAttrib});
+  map.addLayer(osm);
+  map.setView(new L.LatLng(48.22708, 14.78171), 12);
+
+  var deleteShape = function (e) {
+    if ((e.originalEvent.ctrlKey || e.originalEvent.metaKey) && this.editEnabled()) this.editor.deleteShapeAt(e.latlng);
+  };
+  map.on('layeradd', function (e) {
+      if (e.layer instanceof L.Path) e.layer.on('click', L.DomEvent.stop).on('click', deleteShape, e.layer);
+      if (e.layer instanceof L.Path) e.layer.on('dblclick', L.DomEvent.stop).on('dblclick', e.layer.toggleEdit);
+  });
+
+  L.EditControl = L.Control.extend({
+        options: {
+            position: 'topleft',
+            callback: null,
+            kind: '',
+            html: ''
+        },
+
+        onAdd: function (map) {
+            var container = L.DomUtil.create('div', 'leaflet-control leaflet-bar'),
+                link = L.DomUtil.create('a', '', container);
+
+            link.href = '#';
+            link.title = 'Create a new ' + this.options.kind;
+            link.innerHTML = this.options.html;
+            L.DomEvent.on(link, 'click', L.DomEvent.stop)
+                      .on(link, 'click', function () {
+                        window.LAYER = this.options.callback.call(map.editTools);
+                      }, this);
+
+            return container;
+        }
+    });
+
+    L.NewPolygonControl = L.EditControl.extend({
+        options: {
+            position: 'topleft',
+            callback: map.editTools.startPolygon,
+            kind: 'polygon',
+            html: '▰'
+        }
+    });
+
+    L.NewRectangleControl = L.EditControl.extend({
+        options: {
+            position: 'topleft',
+            callback: map.editTools.startRectangle,
+            kind: 'rectangle',
+            html: '⬛'
+        }
+    });
+
+    L.NewCircleControl = L.EditControl.extend({
+        options: {
+            position: 'topleft',
+            callback: map.editTools.startCircle,
+            kind: 'circle',
+            html: '⬤'
+        }
+    });
+
+  map.addControl(new L.NewPolygonControl());
+  map.addControl(new L.NewRectangleControl());
+  map.addControl(new L.NewCircleControl());
+
+  function onEachFeature(feature, layer) {
+    var popupContent = "<p><strong>label:</strong> " + feature.properties.name + "<br /><strong>type:</strong> " + feature.geometry.type + "</p>";
+    if (feature.properties && feature.properties.popupContent) {
+      popupContent += feature.properties.popupContent;
+    }
+
+    layer.bindPopup(popupContent);
+  }
+
+  function BoundingBox(lat1, lng1, lat2, lng2, str, color) {
+      var p1 = new L.LatLng(lat1, lng1),
+      p2 = new L.LatLng(lat1, lng2),
+      p3 = new L.LatLng(lat2, lng2),
+      p4 = new L.LatLng(lat2, lng1),
+      polygonPoints = [p1, p2, p3, p4, p1],
+      polygon = new L.Polygon(polygonPoints, color);
+
+      polygon.bindPopup(str);
+      map.addLayer(polygon);
+  }
+
+  var entries = [];
+
+  $content
+
+  divLayers = document.getElementById('layers');
+  entries.forEach(function(entry) {
+    var layer = L.geoJSON(entry, {style:{color: entry.properties.color}, onEachFeature: onEachFeature});
+    layer.addTo(map);
+
+    var lbl = document.createElement("label");
+    lbl.innerText = entry.properties.name;
+
+    var cb = document.createElement("input");
+    cb.setAttribute("type", "checkbox");
+    cb.setAttribute("title", entry.properties.name);
+    cb.setAttribute("label", "test");
+    cb.setAttribute("checked", "checked");
+    cb.addEventListener('change', (event) => {
+      if (event.target.checked) {
+        layer.addTo(map);
+      } else {
+        map.removeLayer(layer);
+      }
+    });
+
+    lbl.appendChild(cb);
+    divLayers.appendChild(lbl);
+    divLayers.appendChild(document.createElement("br"));
+  });
+
+  document.getElementById('wktbtn').addEventListener('click', function() {
+    map.eachLayer(function(layer) {
+      try { // find a better method...
+        layer.disableEdit();
+        console.log(wellknown.stringify(layer.toGeoJSON()));
+      } catch { }
+    });
+  });
+
+/* List of bounding boxes 
+BoundingBox(48.001253,5.885540,47.984034,5.903454, "before-0", { color: "#ff0000" })
+BoundingBox(47.996253,5.890540,47.989034,5.898454, "after-0", { color: "#00ff00" })
+BoundingBox(48.001253,5.901658,47.984034,5.919572, "before-1", { color: "#ff0000" })
+BoundingBox(47.996253,5.906658,47.989034,5.914572, "after-1", { color: "#00ff00" })
+BoundingBox(48.001253,5.917775,47.984034,5.935689, "before-2", { color: "#ff0000" })
+BoundingBox(47.996253,5.922775,47.989034,5.930689, "after-2", { color: "#00ff00" })
+BoundingBox(47.985237,5.885540,47.968013,5.903454, "before-3", { color: "#ff0000" })
+BoundingBox(47.980237,5.890540,47.973013,5.898454, "after-3", { color: "#00ff00" })
+BoundingBox(47.985237,5.901658,47.968013,5.919572, "before-4", { color: "#ff0000" })
+BoundingBox(47.980237,5.906658,47.973013,5.914572, "after-4", { color: "#00ff00" })
+BoundingBox(47.985237,5.917775,47.968013,5.935689, "before-5", { color: "#ff0000" })
+BoundingBox(47.980237,5.922775,47.973013,5.930689, "after-5", { color: "#00ff00" })
+map.fitBounds(); */
+
+});
+    </script>
+  <h2>Layers</h2>
+  <div id="layers"></div>
+  <button id="wktbtn">to wkt</button>
+  </body>
+</html>
+

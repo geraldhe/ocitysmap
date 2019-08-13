@@ -95,9 +95,11 @@ class Renderer:
         self.grid         = None # The implementation is in charge of it
 
         self.paper_width_pt = \
-                commons.convert_mm_to_pt(self.rc.paper_width_mm + 2 * self.PRINT_BLEED_MM)
+                commons.convert_mm_to_pt(self.rc.paper_width_mm + 2 * self.PRINT_BLEED_MM) \
+                + 2 * self.PRINT_SAFE_MARGIN_PT
         self.paper_height_pt = \
-                commons.convert_mm_to_pt(self.rc.paper_height_mm + 2 * self.PRINT_BLEED_MM)
+                commons.convert_mm_to_pt(self.rc.paper_height_mm + 2 * self.PRINT_BLEED_MM) \
+                + 2 * self.PRINT_SAFE_MARGIN_PT
         self._title_margin_pt = 0
         self.dpi = dpi
 
