@@ -22,19 +22,12 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import print_function
-
 import math
 
 import shapely.wkt
 
 import xml.sax
 
-# Importing mapnik2 raises a DeprecationWarning as of mapnik
-# commit 14700dba. As mapnik 2.1 (or git version with support for
-# placement-type="simple") is required for OCitySMap (see INSTALL),
-# instead of importing mapnik2, we import mapnik and assert it isn't
-# an old version.
 import mapnik
 assert mapnik.mapnik_version() >= 300000, \
     "Mapnik module version %s is too old, see ocitysmap's INSTALL " \

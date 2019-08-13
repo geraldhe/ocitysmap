@@ -324,10 +324,8 @@ class Renderer:
                               self.rc.stylesheet.grid_line_alpha,
                               self.rc.stylesheet.grid_line_width)
 
-    def render_plugin(self, plugin_name, ctx):
-        my_plugin = self.plugin_source.load_plugin(plugin_name)
-        my_plugin.render(self, ctx)
-
+    def get_plugin(self, plugin_name):
+        return self.plugin_source.load_plugin(plugin_name)
 
     # The next two methods are to be overloaded by the actual renderer.
     def render(self, cairo_surface, dpi):

@@ -330,7 +330,7 @@ class MultiPageRenderer(Renderer):
         for overlay in self._overlays:
             path = overlay.path.strip()
             if path.startswith('internal:'):
-                self.overview_overlay_effects.append(path.lstrip('internal:'))
+                self.overview_overlay_effects.append(self.get_plugin(path.lstrip('internal:')))
             else:
                 ov_canvas = MapCanvas(overlay,
                                       overview_bb,
@@ -388,7 +388,7 @@ class MultiPageRenderer(Renderer):
             for overlay in self._overlays:
                 path = overlay.path.strip()
                 if path.startswith('internal:'):
-                    overlay_effects.append(path.lstrip('internal:'))
+                    overlay_effects.append(self.get_plugin(path.lstrip('internal:')))
                 else:
                     overlay_canvases.append(MapCanvas(overlay,
                                                bb, self._usable_map_area_width_pt,
@@ -574,7 +574,7 @@ class MultiPageRenderer(Renderer):
         for overlay in self._overlays:
             path = overlay.path.strip()
             if path.startswith('internal:'):
-                self._frontpage_overlay_effects.append(path.lstrip('internal:'))
+                self._frontpage_overlay_effects.append(self.get_plugin(path.lstrip('internal:')))
             else:
                 ov_canvas = MapCanvas(overlay,
                                       self.rc.bounding_box,
@@ -620,7 +620,7 @@ class MultiPageRenderer(Renderer):
         ctx.translate(0, -(0.3 * h + Renderer.LAYOUT_MARGIN_PT))
         self._map_canvas = self._front_page_map;
         for effect in self._frontpage_overlay_effects:
-            self.render_plugin(effect, ctx)
+            effect.render(self, ctx)
         ctx.restore()
 
         ctx.restore()
@@ -792,7 +792,7 @@ class MultiPageRenderer(Renderer):
 
         self._map_canvas = self.overview_canvas;
         for effect in self.overview_overlay_effects:
-            self.render_plugin(effect, ctx)
+            effect.render(self, ctx)
         ctx.restore()
 
         # draw pages numbers
@@ -1041,7 +1041,7 @@ class MultiPageRenderer(Renderer):
             self._map_canvas = canvas;
             for effect in overlay_effects:
                 self.grid = grid
-                self.render_plugin(effect, ctx)
+                effect.render(self, ctx)
             ctx.restore()
 
 
