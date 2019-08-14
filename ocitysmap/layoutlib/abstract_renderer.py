@@ -62,12 +62,12 @@ class Renderer:
     # The PRINT_SAFE_MARGIN_PT is a small margin we leave on all page borders
     # to ease printing as printers often eat up margins with misaligned paper,
     # etc.
-    PRINT_SAFE_MARGIN_PT = 0
+    PRINT_SAFE_MARGIN_PT = commons.convert_mm_to_pt(0)
 
     PRINT_BLEED_MM = 2 # 2mm Beschittzugabe
     PRINT_BLEED_PT = commons.convert_mm_to_pt(PRINT_BLEED_MM)
 
-    LAYOUT_MARGIN_PT = 15
+    LAYOUT_MARGIN_PT = commons.convert_mm_to_pt(7)
 
     GRID_LEGEND_MARGIN_RATIO = .02
 
@@ -78,6 +78,8 @@ class Renderer:
     DEFAULT_SCALE           = 70000
     DEFAULT_MULTIPAGE_SCALE = 11000 # Ziel ~ 9500 ?
     MAX_MULTIPAGE_MAPPAGES  = 5000
+    
+    DEBUG = True
 
     def __init__(self, db, rc, tmpdir, dpi):
         """

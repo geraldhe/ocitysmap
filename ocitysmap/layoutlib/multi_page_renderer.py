@@ -66,9 +66,9 @@ class MultiPageRenderer(Renderer):
     description = 'A multi-page layout.'
     multipages = True
 
-    GRAYED_MARGIN_TOP_BOTTOM_MM = 10
+    GRAYED_MARGIN_TOP_BOTTOM_MM = 10 # 10mm
     GRAYED_MARGIN_INSIDE_MM = 3.3 + 15 # 3.3mm für Klebebindung + 15mm Abstand zum "Text" / zur Karte
-    GRAYED_MARGIN_OUTSIDE_MM = 10
+    GRAYED_MARGIN_OUTSIDE_MM = 10 # 10mm
 
     OVERLAP_MARGIN_HOR_MM = 0
     OVERLAP_MARGIN_VERT_MM = 0
@@ -98,11 +98,11 @@ class MultiPageRenderer(Renderer):
         self.marker_size_pt = commons.convert_mm_to_pt(MultiPageRenderer.MARKER_SIZE_MM)
 
         # Compute the usable area for the map per page
-        self._usable_map_area_width_pt = self.paper_width_pt
-        self._usable_map_area_height_pt = self.paper_height_pt
+        self._usable_map_area_width_pt = self.paper_width_pt - 2*Renderer.PRINT_SAFE_MARGIN_PT
+        self._usable_map_area_height_pt = self.paper_height_pt - 2*Renderer.PRINT_SAFE_MARGIN_PT
 
-        self._visible_map_area_width_pt = self.paper_width_pt - 2*self.print_bleed_pt - self.grayed_margin_inside_pt - self.grayed_margin_outside_pt
-        self._visible_map_area_height_pt = self.paper_height_pt - 2*self.print_bleed_pt - 2*self.grayed_margin_top_bottom_pt
+        self._visible_map_area_width_pt = self._usable_map_area_width_pt - 2*self.print_bleed_pt - self.grayed_margin_inside_pt - self.grayed_margin_outside_pt
+        self._visible_map_area_height_pt = self._usable_map_area_height_pt - 2*self.print_bleed_pt - 2*self.grayed_margin_top_bottom_pt
 
         #self._map_coords = ( Renderer.PRINT_SAFE_MARGIN_PT + Renderer.PRINT_BLEED_PT,
         #                     Renderer.PRINT_SAFE_MARGIN_PT + Renderer.PRINT_BLEED_PT,
@@ -692,25 +692,44 @@ class MultiPageRenderer(Renderer):
         ctx.restore()
 
     def _render_front_page(self, ctx, cairo_surface, dpi, osm_date):
+        # set content-size (full page width - print-safe-margin)
+        content_width = self.paper_width_pt - 2*Renderer.PRINT_SAFE_MARGIN_PT
+        content_height = self.paper_height_pt - 2*Renderer.PRINT_SAFE_MARGIN_PT
+        margin_x = 0
+        margin_y = 0
+    
         # Draw a nice grey rectangle covering the whole page
         ctx.save()
         ctx.set_source_rgb(.95,.95,.95)
-        ctx.rectangle(0, 0, self.paper_width_pt, self.paper_height_pt)
+        ctx.rectangle(margin_x, margin_y, content_width, content_height)
         ctx.fill()
         ctx.restore()
+
+        # reduce content-size by print bleed
+        content_width -= 2*Renderer.PRINT_BLEED_PT
+        content_height -= 2*Renderer.PRINT_BLEED_PT
+        margin_x += Renderer.PRINT_BLEED_PT
+        margin_y += Renderer.PRINT_BLEED_PT
+        if Renderer.DEBUG: # show area excluding bleed-difference
+            ctx.save()
+            ctx.set_source_rgb(1,0.4,0.4)
+            ctx.rectangle(margin_x, margin_y, content_width, content_height)
+            ctx.stroke()
+            ctx.restore()
+
+        # reduce content-size by layout margin
+        content_width -= 2*Renderer.LAYOUT_MARGIN_PT
+        content_height -= 2*Renderer.LAYOUT_MARGIN_PT
 
         # Translate into the working area, taking 
         # LAYOUT_MARGIN_PT inside the grey area.
         ctx.save()
-        ctx.translate(Renderer.PRINT_SAFE_MARGIN_PT + Renderer.PRINT_BLEED_PT + Renderer.LAYOUT_MARGIN_PT,
-                      Renderer.PRINT_SAFE_MARGIN_PT + Renderer.PRINT_BLEED_PT + Renderer.LAYOUT_MARGIN_PT)
-        w = self.paper_width_pt - 2 * Renderer.LAYOUT_MARGIN_PT - 2 * Renderer.PRINT_BLEED_PT
-        h = self.paper_height_pt - 2 * Renderer.LAYOUT_MARGIN_PT - 2 * Renderer.PRINT_BLEED_PT
-
-        self._render_front_page_map(ctx, dpi, w, h)
-        self._render_front_page_header(ctx, w, h)
-        self._render_front_page_footer(ctx, w, h, osm_date)
-
+        ctx.translate(
+            commons.convert_pt_to_dots(Renderer.PRINT_BLEED_PT + Renderer.LAYOUT_MARGIN_PT),
+            commons.convert_pt_to_dots(Renderer.PRINT_BLEED_PT + Renderer.LAYOUT_MARGIN_PT))
+        self._render_front_page_map(ctx, dpi, content_width, content_height)
+        self._render_front_page_header(ctx, content_width, content_height)
+        self._render_front_page_footer(ctx, content_width, content_height, osm_date)
         ctx.restore()
 
         cairo_surface.set_page_label('Front page')
@@ -720,43 +739,54 @@ class MultiPageRenderer(Renderer):
         """
         Render a blank page with a nice "intentionally blank" notice
         """
-        ctx.save()
-        ctx.translate(
-                commons.convert_pt_to_dots(Renderer.PRINT_SAFE_MARGIN_PT),
-                commons.convert_pt_to_dots(Renderer.PRINT_SAFE_MARGIN_PT))
 
-        # temp: show area without bleed-difference
-        ctx.save()
-        ctx.set_source_rgb(.95,.95,.95)
-        ctx.rectangle(
-            Renderer.PRINT_BLEED_PT + Renderer.PRINT_SAFE_MARGIN_PT,
-            Renderer.PRINT_BLEED_PT + Renderer.PRINT_SAFE_MARGIN_PT,
-            self.paper_width_pt - 2*Renderer.PRINT_BLEED_PT - 2*Renderer.PRINT_SAFE_MARGIN_PT,
-            self.paper_height_pt - 2*Renderer.PRINT_BLEED_PT - 2*Renderer.PRINT_SAFE_MARGIN_PT)
-        ctx.fill()
-        ctx.restore()
+        # set content-size (full page width - print-safe-margin)
+        content_width = self.paper_width_pt - 2*Renderer.PRINT_SAFE_MARGIN_PT
+        content_height = self.paper_height_pt - 2*Renderer.PRINT_SAFE_MARGIN_PT
+        margin_x = 0
+        margin_y = 0
+        if Renderer.DEBUG: # show area including bleed-difference
+            ctx.save()
+            ctx.set_source_rgb(.95,.95,.90)
+            ctx.rectangle(0, 0, content_width, content_height)
+            ctx.fill()
+            ctx.restore()
 
-        # temp: show content-area (inside grayed margin)
-        ctx.save()
-        ctx.set_source_rgb(.85,.85,.85)
-        ctx.rectangle(
-            Renderer.PRINT_BLEED_PT + Renderer.PRINT_SAFE_MARGIN_PT + commons.convert_mm_to_pt(MultiPageRenderer.GRAYED_MARGIN_INSIDE_MM if page % 2 else MultiPageRenderer.GRAYED_MARGIN_OUTSIDE_MM),
-            Renderer.PRINT_BLEED_PT + Renderer.PRINT_SAFE_MARGIN_PT + commons.convert_mm_to_pt(MultiPageRenderer.GRAYED_MARGIN_TOP_BOTTOM_MM),
-            self.paper_width_pt - 2*Renderer.PRINT_BLEED_PT - 2*Renderer.PRINT_SAFE_MARGIN_PT - commons.convert_mm_to_pt(MultiPageRenderer.GRAYED_MARGIN_INSIDE_MM + MultiPageRenderer.GRAYED_MARGIN_OUTSIDE_MM),
-            self.paper_height_pt - 2*Renderer.PRINT_BLEED_PT - 2*Renderer.PRINT_SAFE_MARGIN_PT - 2*commons.convert_mm_to_pt(MultiPageRenderer.GRAYED_MARGIN_TOP_BOTTOM_MM))
-        ctx.fill()
-        ctx.restore()
+        # reduce content-size by print bleed
+        content_width -= 2*Renderer.PRINT_BLEED_PT
+        content_height -= 2*Renderer.PRINT_BLEED_PT
+        margin_x += Renderer.PRINT_BLEED_PT
+        margin_y += Renderer.PRINT_BLEED_PT
+        if Renderer.DEBUG: # show area excluding bleed-difference
+            ctx.save()
+            ctx.set_source_rgb(1,0.4,0.4)
+            ctx.rectangle(margin_x, margin_y, content_width, content_height)
+            ctx.stroke()
+            ctx.restore()
+
+        # blue stroke dash5: printable area
+        content_width -= commons.convert_mm_to_pt(MultiPageRenderer.GRAYED_MARGIN_INSIDE_MM + MultiPageRenderer.GRAYED_MARGIN_OUTSIDE_MM)
+        content_height -= 2*commons.convert_mm_to_pt(MultiPageRenderer.GRAYED_MARGIN_TOP_BOTTOM_MM)
+        margin_x += commons.convert_mm_to_pt(MultiPageRenderer.GRAYED_MARGIN_INSIDE_MM if page % 2 else MultiPageRenderer.GRAYED_MARGIN_OUTSIDE_MM)
+        margin_y += commons.convert_mm_to_pt(MultiPageRenderer.GRAYED_MARGIN_TOP_BOTTOM_MM)
+        if Renderer.DEBUG: # show content-area (excluding bleed-difference) (inside grayed margin)
+            ctx.save()
+            ctx.set_source_rgba(0, 0, 1, .75)
+            ctx.set_dash([5.0, 5.0], 5.0/2.0)
+            ctx.rectangle(margin_x, margin_y, content_width, content_height)
+            ctx.stroke()
+            ctx.restore()
 
         # footer notice
-        content_width = self.paper_width_pt - 2*Renderer.PRINT_BLEED_PT - commons.convert_mm_to_pt(MultiPageRenderer.GRAYED_MARGIN_INSIDE_MM + MultiPageRenderer.GRAYED_MARGIN_OUTSIDE_MM)
-        x = Renderer.PRINT_BLEED_PT + commons.convert_mm_to_pt(MultiPageRenderer.GRAYED_MARGIN_INSIDE_MM if page % 2 else MultiPageRenderer.GRAYED_MARGIN_OUTSIDE_MM) + (content_width/2)
-        y = self.paper_height_pt - Renderer.PRINT_BLEED_PT - Renderer.PRINT_SAFE_MARGIN_PT - commons.convert_mm_to_pt(MultiPageRenderer.GRAYED_MARGIN_TOP_BOTTOM_MM/2)
+        x = margin_x + content_width / 2 # + commons.convert_mm_to_pt(MultiPageRenderer.GRAYED_MARGIN_INSIDE_MM if page % 2 else MultiPageRenderer.GRAYED_MARGIN_OUTSIDE_MM) + (content_width/2)
+        y = margin_y + content_height + commons.convert_mm_to_pt(MultiPageRenderer.GRAYED_MARGIN_TOP_BOTTOM_MM/2)
         ctx.set_source_rgb(.6,.6,.6)
+
         draw_utils.draw_simpletext_center(ctx, _('This page is intentionally left '\
                                             'blank.'), x, y)
         draw_utils.render_page_number(ctx, page,
-                                      self.paper_width_pt,
-                                      self.paper_height_pt,
+                                      self.paper_width_pt - 2*Renderer.PRINT_SAFE_MARGIN_PT,
+                                      self.paper_height_pt - 2*Renderer.PRINT_SAFE_MARGIN_PT,
                                       transparent_background=False,
                                       margin_inside_pt = self.grayed_margin_inside_pt,
                                       margin_outside_pt = self.grayed_margin_outside_pt,
@@ -764,19 +794,35 @@ class MultiPageRenderer(Renderer):
                                       print_bleed_pt = self.print_bleed_pt)
         cairo_surface.set_page_label('Blank')
         cairo_surface.show_page()
-        ctx.restore()
 
-    def _render_overview_page(self, ctx, cairo_surface, dpi):
+    def _render_overview_page(self, ctx, cairo_surface, dpi, page_number):
         rendered_map = self.overview_canvas.get_rendered_map()
 
         ctx.save()
 
-        #ctx.translate(
-        #   commons.convert_pt_to_dots(Renderer.PRINT_SAFE_MARGIN_PT + Renderer.PRINT_BLEED_PT + MultiPageRenderer.GRAYED_MARGIN_INSIDE_MM),
-        #   commons.convert_pt_to_dots(Renderer.PRINT_SAFE_MARGIN_PT + Renderer.PRINT_BLEED_PT))
-        #ctx.rectangle(0, 0, self._usable_map_area_width_pt, self._usable_map_area_height_pt)
-        #ctx.clip()
-        
+        if Renderer.DEBUG: # show area excluding bleed-difference, show content area
+            content_width = self._usable_map_area_width_pt - 2*Renderer.PRINT_BLEED_PT
+            content_height = self._usable_map_area_height_pt - 2*Renderer.PRINT_BLEED_PT
+            margin_x = Renderer.PRINT_BLEED_PT
+            margin_y = Renderer.PRINT_BLEED_PT
+            ctx.save()
+            ctx.set_source_rgba(1, 0, 0, .75)
+            ctx.rectangle(margin_x, margin_y, content_width, content_height)
+            ctx.stroke()
+            ctx.restore()
+            
+            # blue stroke dash5: printable area
+            content_width -= self.grayed_margin_inside_pt + self.grayed_margin_outside_pt
+            content_height -= 2*self.grayed_margin_top_bottom_pt
+            margin_x += self.grayed_margin_inside_pt if page_number % 2 else self.grayed_margin_outside_pt
+            margin_y += self.grayed_margin_top_bottom_pt
+            ctx.save()
+            ctx.set_source_rgba(0, 0, 1, .75)
+            ctx.set_dash([5.0, 5.0], 5.0/2.0)
+            ctx.rectangle(margin_x, margin_y, content_width, content_height)
+            ctx.stroke()
+            ctx.restore()
+
         mapnik.render(rendered_map, ctx)
 
         for ov_canvas in self.overview_overlay_canvases:
@@ -785,10 +831,6 @@ class MultiPageRenderer(Renderer):
 
         # apply effect overlays
         ctx.save()
-        # we have to undo border adjustments here
-        #ctx.translate(
-        #        -commons.convert_pt_to_dots(Renderer.PRINT_SAFE_MARGIN_PT + Renderer.PRINT_BLEED_PT + Renderer.BINDING_MARGIN_PT),
-        #        -commons.convert_pt_to_dots(Renderer.PRINT_SAFE_MARGIN_PT + Renderer.PRINT_BLEED_PT))
 
         self._map_canvas = self.overview_canvas;
         for effect in self.overview_overlay_effects:
@@ -800,7 +842,7 @@ class MultiPageRenderer(Renderer):
               commons.convert_pt_to_dots(self._usable_map_area_width_pt),
               commons.convert_pt_to_dots(self._usable_map_area_height_pt))
         # Render the page number
-        draw_utils.render_page_number(ctx, 3,
+        draw_utils.render_page_number(ctx, page_number,
                                       self._usable_map_area_width_pt,
                                       self._usable_map_area_height_pt,
                                       self.grayed_margin_inside_pt,
@@ -987,19 +1029,46 @@ class MultiPageRenderer(Renderer):
 
         ctx.restore()
 
-
     def render(self, cairo_surface, dpi, osm_date):
         ctx = cairo.Context(cairo_surface)
 
+        # translate all pages by PRINT_SAFE_MARGIN_PT
+        ctx.save()
+        ctx.translate(
+                commons.convert_pt_to_dots(Renderer.PRINT_SAFE_MARGIN_PT),
+                commons.convert_pt_to_dots(Renderer.PRINT_SAFE_MARGIN_PT))
+
         self._render_front_page(ctx, cairo_surface, dpi, osm_date)
         self._render_blank_page(ctx, cairo_surface, dpi, 2)
-        #self._render_blank_page(ctx, cairo_surface, dpi, 3)
 
         ctx.save()
 
-        self._render_overview_page(ctx, cairo_surface, dpi)
+        self._render_overview_page(ctx, cairo_surface, dpi, 3)
 
         for map_number, (canvas, grid, overlay_canvases, overlay_effects) in enumerate(self.pages):
+            if Renderer.DEBUG: # show area excluding bleed-difference
+                margin_x = Renderer.PRINT_BLEED_PT
+                margin_y = Renderer.PRINT_BLEED_PT
+                content_width = self._usable_map_area_width_pt - 2*Renderer.PRINT_BLEED_PT
+                content_height = self._usable_map_area_height_pt - 2*Renderer.PRINT_BLEED_PT
+                ctx.save()
+                ctx.set_source_rgb(1,0.4,0.4)
+                ctx.rectangle(margin_x, margin_y, content_width, content_height)
+                ctx.stroke()
+                ctx.restore()
+
+                # blue stroke dash5: printable area
+                content_width -= self.grayed_margin_inside_pt + self.grayed_margin_outside_pt
+                content_height -= 2*self.grayed_margin_top_bottom_pt
+                margin_x += self.grayed_margin_inside_pt if map_number % 2 else self.grayed_margin_outside_pt
+                margin_y += self.grayed_margin_top_bottom_pt
+                ctx.save()
+                ctx.set_source_rgba(0, 0, 1, .75)
+                ctx.set_dash([5.0, 5.0], 5.0/2.0)
+                ctx.rectangle(margin_x, margin_y, content_width, content_height)
+                ctx.stroke()
+                ctx.restore()
+
             ctx.save();
             #LOG.info('Map page %d of %d' % (map_number + 1, len(self.pages)))
             rendered_map = canvas.get_rendered_map()
@@ -1060,18 +1129,20 @@ class MultiPageRenderer(Renderer):
             cairo_surface.set_page_label('Map page %d' % (map_number + self._first_map_page_number))
             cairo_surface.show_page()
             ctx.restore();
+
         ctx.restore()
 
         mpsir = MultiPageStreetIndexRenderer(self.rc.i18n,
                                              ctx, cairo_surface,
                                              self.index_categories,
-                                             (self.paper_width_pt, self.paper_height_pt),
+                                             (self._usable_map_area_width_pt, self._usable_map_area_height_pt),
                                              (self.grayed_margin_inside_pt, self.grayed_margin_outside_pt, self.grayed_margin_top_bottom_pt),
                                              Renderer.PRINT_BLEED_PT,
-                                             map_number+4)
+                                             len(self.pages) + 3)
 
         mpsir.render()
 
+        ctx.restore()
         cairo_surface.flush()
 
     # In multi-page mode, we only render pdf format

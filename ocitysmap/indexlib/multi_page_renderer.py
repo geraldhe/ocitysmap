@@ -50,8 +50,8 @@ class MultiPageStreetIndexRenderer:
         self.ctx              = ctx
         self.surface          = surface
         self.index_categories = index_categories
-        self.rendering_area_x = Renderer.PRINT_SAFE_MARGIN_PT
-        self.rendering_area_y = Renderer.PRINT_SAFE_MARGIN_PT
+        self.rendering_area_x = Renderer.PRINT_BLEED_PT
+        self.rendering_area_y = Renderer.PRINT_BLEED_PT
         self.print_safe_margin_pt = Renderer.PRINT_SAFE_MARGIN_PT
         self.rendering_area_w = rendering_area[0]
         self.rendering_area_h = rendering_area[1]
@@ -61,7 +61,6 @@ class MultiPageStreetIndexRenderer:
         self.print_bleed_pt = print_bleed_pt
         self.page_offset      = page_offset
         self.index_page_num   = 1
-        self.debug_mode       = False
 
     def _create_layout_with_font(self, ctx, pc, font_desc):
         layout = PangoCairo.create_layout(ctx)
@@ -91,19 +90,33 @@ class MultiPageStreetIndexRenderer:
         self.ctx.restore()
         self.surface.set_page_label('Index page %d' % (self.index_page_num))
 
-    def _draw_page_background(self):
-        if self.debug_mode:
+    def _draw_page_stroke(self):
+        if Renderer.DEBUG:
             LOG.debug("grau: %f rendering_area_w, %f print_bleed_pt, %f print_safe_margin_pt" % (self.rendering_area_w, self.print_bleed_pt, self.print_safe_margin_pt))
             LOG.debug("grau: %f w, %f h" % (self.rendering_area_w - 2*self.print_bleed_pt - 2*self.print_safe_margin_pt, self.rendering_area_h - 2*self.print_bleed_pt - 2*self.print_safe_margin_pt))
             # temp / grey: show area without bleed-difference
             self.ctx.save()
-            self.ctx.set_source_rgba(.85,.75,.75, .5)
+            self.ctx.set_source_rgb(1,0.4,0.4)
             self.ctx.rectangle(
-                self.print_bleed_pt + self.print_safe_margin_pt,
-                self.print_bleed_pt + self.print_safe_margin_pt,
-                self.rendering_area_w - 2*self.print_bleed_pt - 2*self.print_safe_margin_pt,
-                self.rendering_area_h - 2*self.print_bleed_pt - 2*self.print_safe_margin_pt)
-            self.ctx.fill()
+                self.print_bleed_pt,
+                self.print_bleed_pt,
+                self.rendering_area_w - 2*self.print_bleed_pt,
+                self.rendering_area_h - 2*self.print_bleed_pt)
+            self.ctx.stroke()
+            self.ctx.restore()
+
+    def _draw_page_content_stroke(self):
+        if Renderer.DEBUG: # blue stroke dash5: printable area (new page inserted)
+            self.ctx.save()
+            self.ctx.set_source_rgba(0, 0, 1, .75)
+            self.ctx.set_dash([5.0, 5.0], 5.0/2.0)
+            self.ctx.rectangle(
+                self.print_bleed_pt + (self.margin_inside_pt if (self.index_page_num + self.page_offset) % 2 else self.margin_outside_pt),
+                self.print_bleed_pt + self.margin_top_bottom_pt,
+                self.rendering_area_w - 2*self.print_bleed_pt - self.margin_inside_pt - self.margin_outside_pt,
+                self.rendering_area_h - 2*self.print_bleed_pt - 2*self.margin_top_bottom_pt
+            )
+            self.ctx.stroke()
             self.ctx.restore()
 
     def _draw_page_header(self, rtl, ctx, pc, layout, fascent, fheight,
@@ -119,10 +132,9 @@ class MultiPageStreetIndexRenderer:
 
         self.ctx.save()
 
-        if self.debug_mode:
-            LOG.debug("page_header: %f left, %f top, %f width, %f textblock_height" % (margin_left, margin_top, content_width, textblock_height))
-            # background
-            self.ctx.set_source_rgba(0.9, 0.9, 0.7, .5)
+        if Renderer.DEBUG: # gray background: show heading area
+            LOG.debug("page_header (gray background): %f left, %f top, %f width, %f textblock_height" % (margin_left, margin_top, content_width, textblock_height))
+            self.ctx.set_source_rgba(.7, .7, .7, .75)
             self.ctx.rectangle(margin_left, margin_top, content_width, textblock_height)
             self.ctx.fill()
 
@@ -179,19 +191,39 @@ class MultiPageStreetIndexRenderer:
         city_layout.set_width(int(UTILS.convert_pt_to_dots((index_area_w_pt) * Pango.SCALE, dpi)))
 
         firstPage = True
-        self._draw_page_background()
+        self._draw_page_stroke()
+        self._draw_page_content_stroke()
 
         citiesWithEntries = {k: v for k, v in self.index_categories.items() if len(v)>0} # print only cities with entries
         cities = list(citiesWithEntries.keys())
         cities.sort()
 
-        margin_top = self.print_bleed_pt + self.print_safe_margin_pt + self.margin_top_bottom_pt
+        margin_top = self.print_bleed_pt + self.margin_top_bottom_pt
         margin_top_page = margin_top
         offset_y = margin_top_page
         max_drawing_height = 0
         city_index = -1
         LOG.debug("%f print_bleed_pt, %f print_safe_margin_pt, %f margin_top_bottom_pt, %f margin_top" % (self.print_bleed_pt, self.print_safe_margin_pt, self.margin_top_bottom_pt, margin_top))
-        page_full_available_h = self.rendering_area_h - 2*self.print_bleed_pt - 2*self.print_safe_margin_pt - 2*self.margin_top_bottom_pt
+        page_full_available_h = self.rendering_area_h - 2*self.print_bleed_pt - 2*self.margin_top_bottom_pt
+
+        content_width = self.rendering_area_w - 2*Renderer.PRINT_BLEED_PT
+        content_height = self.rendering_area_h - 2*Renderer.PRINT_BLEED_PT
+        margin_x = self.print_bleed_pt
+        margin_y = self.print_bleed_pt
+
+        if Renderer.DEBUG: # red stroke dash1: show area excluding bleed-difference
+            self.ctx.save()
+            self.ctx.set_source_rgba(1, 0.4, 0.4, .75)
+            self.ctx.set_dash([1.0, 1.0], 1.0/2.0)
+            self.ctx.rectangle(margin_x, margin_y, content_width, content_height)
+            self.ctx.stroke()
+            self.ctx.restore()
+
+        content_width -= self.margin_inside_pt + self.margin_outside_pt
+        content_height -= 2*self.margin_top_bottom_pt
+        margin_x += (self.margin_inside_pt if (self.index_page_num + self.page_offset) % 2 else self.margin_outside_pt)
+        margin_y += self.margin_top_bottom_pt
+
         #LOG.debug(list(filter(lambda x: len(self.index_categories[cities[x]]) > 0, cities)))
         for city in cities:
             city_index = city_index + 1
@@ -201,17 +233,18 @@ class MultiPageStreetIndexRenderer:
             firstPage = False
 
             margin_top_page += max_drawing_height # add max drawing height of previous city
-            index_area_h_pt = self.rendering_area_h - self.print_bleed_pt - self.print_safe_margin_pt - self.margin_top_bottom_pt - margin_top_page
+            index_area_h_pt = self.rendering_area_h - self.print_bleed_pt - self.margin_top_bottom_pt - margin_top_page
             LOG.debug("============")
             LOG.debug("printing index for city '%s'. available area: %f x %f, margin_top_page: %f" % (city, index_area_w_pt, index_area_h_pt, margin_top_page))
 
             if (margin_top_page > (page_full_available_h * 4 / 5)):
                 LOG.debug("NEW PAGE: margin_top_page (%f) > %f" % (margin_top_page, page_full_available_h * 4 / 5))
                 self._new_page()
-                self._draw_page_background()
-                margin_top = self.print_bleed_pt + self.print_safe_margin_pt + self.margin_top_bottom_pt
+                self._draw_page_stroke()
+                self._draw_page_content_stroke()
+                margin_top = self.print_bleed_pt + self.margin_top_bottom_pt
                 margin_top_page = margin_top
-                index_area_h_pt = self.rendering_area_h - self.print_bleed_pt - self.print_safe_margin_pt - self.margin_top_bottom_pt - margin_top_page # full page height available now with this new page.
+                index_area_h_pt = self.rendering_area_h - self.print_bleed_pt - self.margin_top_bottom_pt - margin_top_page # full page height available now with this new page.
 
             city_header_height = 0
             if len(cities) > 1:
@@ -220,10 +253,10 @@ class MultiPageStreetIndexRenderer:
                             UTILS.convert_pt_to_dots(city_fascent, dpi),
                             UTILS.convert_pt_to_dots(cityBlockHeight, dpi),
                             UTILS.convert_pt_to_dots(self.rendering_area_x + self.print_bleed_pt + (self.margin_inside_pt if (self.index_page_num + self.page_offset) % 2 else self.margin_outside_pt), dpi),
-                            UTILS.convert_pt_to_dots(margin_top_page, dpi), # baseline_y, original: self.rendering_area_y + header_fascent
+                            UTILS.convert_pt_to_dots(margin_top_page + header_fascent/2, dpi), # baseline_y, original: self.rendering_area_y + header_fascent
                             margin_top_page, #margin_top
                             city)
-                index_area_h_pt = index_area_h_pt - city_header_height
+                index_area_h_pt -= city_header_height
                 margin_top_page += city_header_height
 
             # find largest label and location
@@ -244,7 +277,7 @@ class MultiPageStreetIndexRenderer:
                 self.index_categories[city].append(self.index_categories[city][0])
                 self.index_categories[city].append(self.index_categories[city][0])
                 self.index_categories[city].append(self.index_categories[city][0])
-            
+
             if False:
                 # Alle Kategorien, bis auf 1 entfernen
                 while len(self.index_categories[city])>1:
@@ -296,18 +329,18 @@ class MultiPageStreetIndexRenderer:
                 LOG.debug("more height neededed (max_drawing_height: %f), than there is available on this page left (index_area_h_pt: %f). Setting max_drawing_height to index_area_h_pt" % (max_drawing_height, index_area_h_pt))
                 max_drawing_height = index_area_h_pt
 
-            if self.debug_mode:
-                # temp / green: show content-area (inside grayed margin)
-                LOG.debug("grün: %f x %f" % (index_area_w_pt, max_drawing_height))
+            if Renderer.DEBUG: # green stroke dash3: show printable page area (after header)
+                LOG.debug("Index - printable area (after header): %f x %f" % (index_area_w_pt, max_drawing_height))
                 self.ctx.save()
-                self.ctx.set_source_rgba(.85,.95,.85, .5)
+                self.ctx.set_source_rgba(0, 1, 0, .75)
+                self.ctx.set_dash([3.0, 3.0], 3.0/2.0)
                 self.ctx.rectangle(
-                    self.print_bleed_pt + self.print_safe_margin_pt + (self.margin_inside_pt if (self.index_page_num + self.page_offset) % 2 else self.margin_outside_pt),
+                    self.print_bleed_pt + (self.margin_inside_pt if (self.index_page_num + self.page_offset) % 2 else self.margin_outside_pt),
                     margin_top_page,
                     index_area_w_pt,
                     max_drawing_height
                 )
-                self.ctx.fill()
+                self.ctx.stroke()
                 self.ctx.restore()
 
             #LOG.debug("max_drawing_width: %f" % max_drawing_width)
@@ -340,18 +373,19 @@ class MultiPageStreetIndexRenderer:
             # page number of first page
             self._draw_page_number()
 
-            if self.debug_mode:
+            if Renderer.DEBUG: # light pink stroke dash 4: full column
                 # temp: show index-area (inside grayed margin)
                 LOG.debug("pink: %f w -> index_area_w_pt, %f h -> index_area_h_pt" % (index_area_w_pt, index_area_h_pt))
                 self.ctx.save()
-                self.ctx.set_source_rgba(.85,.25,.85,.5)
+                self.ctx.set_source_rgba(.85,.25,.85,.75)
+                self.ctx.set_dash([4.0, 4.0], 4.0/2.0)
                 self.ctx.rectangle(
-                    self.print_bleed_pt + self.print_safe_margin_pt + (self.margin_inside_pt if (self.index_page_num + self.page_offset) % 2 else self.margin_outside_pt) + (city_index % 4) * column_width,
+                    self.print_bleed_pt + (self.margin_inside_pt if (self.index_page_num + self.page_offset) % 2 else self.margin_outside_pt) + (city_index % 4) * column_width,
                     margin_top_page,
                     column_width,
                     max_drawing_height
                 )
-                self.ctx.fill()
+                self.ctx.stroke()
                 self.ctx.restore()
 
             offset_y = margin_top_page # each city/category starts on the corresponding margin
@@ -362,84 +396,87 @@ class MultiPageStreetIndexRenderer:
                     actual_n_cols += 1
 
                     if actual_n_cols == columns_count:
-                        LOG.debug("INSERT NEW PAGE. actual_n_cols %d == columns_count %d" % (actual_n_cols, columns_count))
                         self._new_page()
-                        self._draw_page_background()
+                        self._draw_page_stroke()
+                        self._draw_page_content_stroke()
                         actual_n_cols = 0
-                        city_header_height = 0
+                        city_header_height = 0 # no city-header on the additional city-pages
                         margin_top_page = margin_top
                         offset_y = margin_top_page
                         offset_x = orig_offset_x
                         delta_x  = orig_delta_x
-                        max_drawing_height = needed_drawing_height - max_drawing_height
+                        max_drawing_height = needed_drawing_height - max_drawing_height + margin_top_page # OR index_area_h_pt => its a new page, full index_area_h_pt is available now #
+                        LOG.debug("NEW PAGE (before category %s). actual_n_cols == columns_count (%d). needed_drawing_height %d, max_drawing_height %d" % (category.name, columns_count, needed_drawing_height, max_drawing_height))
+                        
+                        if Renderer.DEBUG:
+                            self.ctx.save()
+                            self.ctx.set_source_rgba(1, 0, 0, .75)
+                            self.ctx.set_dash([8.0, 8.0], 8.0/2.0)
+                            self.ctx.rectangle(
+                                self.rendering_area_x + (self.margin_inside_pt if (self.index_page_num + self.page_offset) % 2 else self.margin_outside_pt) + offset_x,
+                                offset_y,
+                                column_width,
+                                max_drawing_height
+                            )
+                            self.ctx.stroke()
+                            self.ctx.restore()
 
-                if True: # if only for debugging
-                    category_height = category.label_drawing_height(header_layout)
-                    #LOG.debug("category_height draw %d | %d | %d | %d" % (category_height, header_fascent, UTILS.convert_pt_to_dots(header_fascent, dpi), header_fheight))
-                    category.draw(self._i18n.isrtl(), self.ctx, pc, header_layout,
-                                UTILS.convert_pt_to_dots(header_fascent, dpi),
-                                UTILS.convert_pt_to_dots(header_fheight, dpi),
-                                UTILS.convert_pt_to_dots(self.rendering_area_x + self.print_bleed_pt + (self.margin_inside_pt if (self.index_page_num + self.page_offset) % 2 else self.margin_outside_pt)
+                category_height = category.label_drawing_height(header_layout)
+                #LOG.debug("category %s, height draw %d | %d | %d | %d" % (category.name, category_height, header_fascent, UTILS.convert_pt_to_dots(header_fascent, dpi), header_fheight))
+                category.draw(self._i18n.isrtl(), self.ctx, pc, header_layout,
+                            UTILS.convert_pt_to_dots(header_fascent, dpi),
+                            UTILS.convert_pt_to_dots(header_fheight, dpi),
+                            UTILS.convert_pt_to_dots(self.rendering_area_x + (self.margin_inside_pt if (self.index_page_num + self.page_offset) % 2 else self.margin_outside_pt)
+                                                    + offset_x, dpi),
+                            UTILS.convert_pt_to_dots(self.rendering_area_y + offset_y + header_fascent, dpi))
+
+                offset_y += category_height
+
+                for street in category.items:
+                    label_height = street.label_drawing_height(label_layout)
+                    if ( offset_y + label_height + margin/2. > (max_drawing_height + margin_top_page) ):
+                        offset_y       = margin_top_page
+                        offset_x      += delta_x
+                        actual_n_cols += 1
+
+                        if actual_n_cols == columns_count:
+                            LOG.debug("NEW PAGE (before street %s). actual_n_cols %d == columns_count %d" % (street.label, actual_n_cols, columns_count))
+                            self._new_page()
+                            self._draw_page_stroke()
+                            self._draw_page_content_stroke()
+                            actual_n_cols = 0
+                            city_header_height = 0
+                            margin_top_page = margin_top
+                            offset_y = margin_top_page
+                            offset_x = orig_offset_x
+                            delta_x  = orig_delta_x
+                            max_drawing_height = needed_drawing_height - max_drawing_height + margin_top_page
+
+                            if Renderer.DEBUG:
+                                self.ctx.save()
+                                self.ctx.set_source_rgba(1, 0, 0, .75)
+                                self.ctx.set_dash([8.0, 8.0], 8.0/2.0)
+                                self.ctx.rectangle(
+                                    self.rendering_area_x + (self.margin_inside_pt if (self.index_page_num + self.page_offset) % 2 else self.margin_outside_pt) + offset_x,
+                                    offset_y,
+                                    column_width,
+                                    max_drawing_height
+                                )
+                                self.ctx.stroke()
+                                self.ctx.restore()
+
+                    self.ctx.set_source_rgb(0,0,0);
+                    street.draw(self._i18n.isrtl(), self.ctx, pc, column_layout,
+                                UTILS.convert_pt_to_dots(label_fascent, dpi),
+                                UTILS.convert_pt_to_dots(label_fheight, dpi),
+                                UTILS.convert_pt_to_dots(self.rendering_area_x + (self.margin_inside_pt if (self.index_page_num + self.page_offset) % 2 else self.margin_outside_pt)
                                                         + offset_x, dpi),
-                                UTILS.convert_pt_to_dots(self.rendering_area_y + offset_y + header_fascent, dpi))
+                                UTILS.convert_pt_to_dots(self.rendering_area_y + offset_y + label_fascent, dpi),
+                                label_layout,
+                                UTILS.convert_pt_to_dots(label_height, dpi),
+                                UTILS.convert_pt_to_dots(max_location_drawing_width, dpi))
 
-                    offset_y += category_height
-
-                if True: # if only for debugging
-                    for street in category.items:
-                        label_height = street.label_drawing_height(label_layout)
-                        if ( offset_y + label_height + margin/2. > (max_drawing_height + margin_top_page) ):
-                            offset_y       = margin_top_page
-                            offset_x      += delta_x
-                            actual_n_cols += 1
-
-                            if actual_n_cols == columns_count:
-                                LOG.debug("INSERT NEW PAGE. actual_n_cols %d == columns_count %d" % (actual_n_cols, columns_count))
-                                self._new_page()
-                                self._draw_page_background()
-                                actual_n_cols = 0
-                                city_header_height = 0
-                                margin_top_page = margin_top
-                                offset_y = margin_top_page
-                                offset_x = orig_offset_x
-                                delta_x  = orig_delta_x
-                                max_drawing_height = needed_drawing_height - max_drawing_height
-
-                                if self.debug_mode:
-                                    # temp: show area without bleed-difference
-                                    self.ctx.save()
-                                    self.ctx.set_source_rgba(.95,.95,.95,.5)
-                                    self.ctx.rectangle(
-                                        self.print_bleed_pt + self.print_safe_margin_pt,
-                                        self.print_bleed_pt + self.print_safe_margin_pt,
-                                        self.rendering_area_w - 2*self.print_bleed_pt - 2*self.print_safe_margin_pt,
-                                        self.rendering_area_h - 2*self.print_bleed_pt - 2*self.print_safe_margin_pt)
-                                    self.ctx.fill()
-                                    self.ctx.restore()
-
-                                    # temp: show content-area (inside grayed margin)
-                                    self.ctx.save()
-                                    self.ctx.set_source_rgba(.85,.95,.85,.5)
-                                    self.ctx.rectangle(
-                                        self.print_bleed_pt + self.print_safe_margin_pt + (self.margin_inside_pt if (self.index_page_num + self.page_offset) % 2 else self.margin_outside_pt),
-                                        self.print_bleed_pt + self.print_safe_margin_pt + self.margin_top_bottom_pt,
-                                        index_area_w_pt,
-                                        index_area_h_pt
-                                    )
-                                    self.ctx.fill()
-                                    self.ctx.restore()
-
-                        street.draw(self._i18n.isrtl(), self.ctx, pc, column_layout,
-                                    UTILS.convert_pt_to_dots(label_fascent, dpi),
-                                    UTILS.convert_pt_to_dots(label_fheight, dpi),
-                                    UTILS.convert_pt_to_dots(self.rendering_area_x + self.print_bleed_pt + (self.margin_inside_pt if (self.index_page_num + self.page_offset) % 2 else self.margin_outside_pt)
-                                                            + offset_x, dpi),
-                                    UTILS.convert_pt_to_dots(self.rendering_area_y + offset_y + label_fascent, dpi),
-                                    label_layout,
-                                    UTILS.convert_pt_to_dots(label_height, dpi),
-                                    UTILS.convert_pt_to_dots(max_location_drawing_width, dpi))
-
-                        offset_y += label_height
+                    offset_y += label_height
 
         self.ctx.restore()
 
