@@ -465,7 +465,7 @@ class MultiPageStreetIndexRenderer:
                                 self.ctx.stroke()
                                 self.ctx.restore()
 
-                    self.ctx.set_source_rgb(0,0,0);
+                    self.ctx.set_source_rgb(0,0,0)
                     street.draw(self._i18n.isrtl(), self.ctx, pc, column_layout,
                                 UTILS.convert_pt_to_dots(label_fascent, dpi),
                                 UTILS.convert_pt_to_dots(label_fheight, dpi),

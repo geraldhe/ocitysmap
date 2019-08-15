@@ -618,7 +618,7 @@ class MultiPageRenderer(Renderer):
         ctx.save()
         # we have to undo border adjustments here
         ctx.translate(0, -(0.3 * h + Renderer.LAYOUT_MARGIN_PT))
-        self._map_canvas = self._front_page_map;
+        self._map_canvas = self._front_page_map
         for effect in self._frontpage_overlay_effects:
             effect.render(self, ctx)
         ctx.restore()
@@ -832,7 +832,7 @@ class MultiPageRenderer(Renderer):
         # apply effect overlays
         ctx.save()
 
-        self._map_canvas = self.overview_canvas;
+        self._map_canvas = self.overview_canvas
         for effect in self.overview_overlay_effects:
             effect.render(self, ctx)
         ctx.restore()
@@ -977,7 +977,7 @@ class MultiPageRenderer(Renderer):
         """
         ctx.save()
 
-        ctx.set_source_rgba(0, 0, 0, 0.7);
+        ctx.set_source_rgba(0, 0, 0, 0.7)
 
         step_horiz = map_area_width_dots / map_grid.horiz_count
         last_horiz_portion = math.modf(map_grid.horiz_count)[0]
@@ -1069,7 +1069,7 @@ class MultiPageRenderer(Renderer):
                 ctx.stroke()
                 ctx.restore()
 
-            ctx.save();
+            ctx.save()
             #LOG.info('Map page %d of %d' % (map_number + 1, len(self.pages)))
             rendered_map = canvas.get_rendered_map()
             # LOG.debug('Mapnik scale: 1/%f' % rendered_map.scale_denominator())
@@ -1107,7 +1107,7 @@ class MultiPageRenderer(Renderer):
             # we have to undo border adjustments here
             ctx.translate(-commons.convert_pt_to_dots(self.grayed_margin_inside_pt)/2,
                       -commons.convert_pt_to_dots(self.grayed_margin_top_bottom_pt)/2)
-            self._map_canvas = canvas;
+            self._map_canvas = canvas
             for effect in overlay_effects:
                 self.grid = grid
                 effect.render(self, ctx)
@@ -1128,7 +1128,7 @@ class MultiPageRenderer(Renderer):
 
             cairo_surface.set_page_label('Map page %d' % (map_number + self._first_map_page_number))
             cairo_surface.show_page()
-            ctx.restore();
+            ctx.restore()
 
         ctx.restore()
 
