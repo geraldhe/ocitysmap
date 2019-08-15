@@ -36,6 +36,7 @@ gi.require_version('Pango', '1.0')
 gi.require_version('PangoCairo', '1.0')
 from gi.repository import Rsvg, Pango, PangoCairo
 import shapely.wkt
+from shapely.ops import cascaded_union
 import sys
 from string import Template
 from functools import cmp_to_key
@@ -350,6 +351,21 @@ class MultiPageRenderer(Renderer):
         else:
             indexes['none'] = []
 
+        if self.rc.name_to_polygon and not self.rc.polygon_cut_wkt is None:
+            print(self.rc.polygon_cut_wkt)
+            polygon_cut = self.rc.polygon_cut_wkt
+            if polygon_cut.is_valid and not polygon_cut.is_empty:
+                for name in self.rc.name_to_polygon:
+                    cut_away_omsid_area = polygon_cut.intersection(self.rc.name_to_polygon[name])
+                    if not cut_away_omsid_area.is_empty:
+                        LOG.debug("adding StreetIndex for cutted away area of %s" % name)
+                        index = StreetIndex(self.db,
+                                        cut_away_omsid_area,
+                                        self.rc.i18n, page_number=0)
+
+                        #index.apply_grid(map_grid)
+                        indexes[name].append(index)
+
         for i, (bb, bb_inner) in enumerate(bboxes):
             # print(bb.as_javascript(name="p%d - bb" % i))
             # print(bb_inner.as_javascript(name="p%d - bb_inner" % i))
@@ -418,8 +434,9 @@ class MultiPageRenderer(Renderer):
             self.pages.append((map_canvas, map_grid, overlay_canvases, overlay_effects))
 
             if self.rc.name_to_polygon:
+                interior_intersected = interior_contour.intersection(interior)
                 for name in self.rc.name_to_polygon:
-                    inside_contour_wkt = interior_contour.intersection(interior).intersection(self.rc.name_to_polygon[name])
+                    inside_contour_wkt = interior_intersected.intersection(self.rc.name_to_polygon[name])
                     if not inside_contour_wkt.is_empty:
                         # Create the index for the current page
                         # inside_contour_wkt = interior_contour.intersection(interior).wkt
@@ -1038,97 +1055,98 @@ class MultiPageRenderer(Renderer):
                 commons.convert_pt_to_dots(Renderer.PRINT_SAFE_MARGIN_PT),
                 commons.convert_pt_to_dots(Renderer.PRINT_SAFE_MARGIN_PT))
 
-        self._render_front_page(ctx, cairo_surface, dpi, osm_date)
-        self._render_blank_page(ctx, cairo_surface, dpi, 2)
+        #self._render_front_page(ctx, cairo_surface, dpi, osm_date)
+        #self._render_blank_page(ctx, cairo_surface, dpi, 2)
 
         ctx.save()
 
-        self._render_overview_page(ctx, cairo_surface, dpi, 3)
+        #self._render_overview_page(ctx, cairo_surface, dpi, 3)
 
-        for map_number, (canvas, grid, overlay_canvases, overlay_effects) in enumerate(self.pages):
-            if Renderer.DEBUG: # show area excluding bleed-difference
-                margin_x = Renderer.PRINT_BLEED_PT
-                margin_y = Renderer.PRINT_BLEED_PT
-                content_width = self._usable_map_area_width_pt - 2*Renderer.PRINT_BLEED_PT
-                content_height = self._usable_map_area_height_pt - 2*Renderer.PRINT_BLEED_PT
+        if False:
+            for map_number, (canvas, grid, overlay_canvases, overlay_effects) in enumerate(self.pages):
+                if Renderer.DEBUG: # show area excluding bleed-difference
+                    margin_x = Renderer.PRINT_BLEED_PT
+                    margin_y = Renderer.PRINT_BLEED_PT
+                    content_width = self._usable_map_area_width_pt - 2*Renderer.PRINT_BLEED_PT
+                    content_height = self._usable_map_area_height_pt - 2*Renderer.PRINT_BLEED_PT
+                    ctx.save()
+                    ctx.set_source_rgb(1,0.4,0.4)
+                    ctx.rectangle(margin_x, margin_y, content_width, content_height)
+                    ctx.stroke()
+                    ctx.restore()
+
+                    # blue stroke dash5: printable area
+                    content_width -= self.grayed_margin_inside_pt + self.grayed_margin_outside_pt
+                    content_height -= 2*self.grayed_margin_top_bottom_pt
+                    margin_x += self.grayed_margin_inside_pt if map_number % 2 else self.grayed_margin_outside_pt
+                    margin_y += self.grayed_margin_top_bottom_pt
+                    ctx.save()
+                    ctx.set_source_rgba(0, 0, 1, .75)
+                    ctx.set_dash([5.0, 5.0], 5.0/2.0)
+                    ctx.rectangle(margin_x, margin_y, content_width, content_height)
+                    ctx.stroke()
+                    ctx.restore()
+
                 ctx.save()
-                ctx.set_source_rgb(1,0.4,0.4)
-                ctx.rectangle(margin_x, margin_y, content_width, content_height)
-                ctx.stroke()
+                #LOG.info('Map page %d of %d' % (map_number + 1, len(self.pages)))
+                rendered_map = canvas.get_rendered_map()
+                # LOG.debug('Mapnik scale: 1/%f' % rendered_map.scale_denominator())
+                # LOG.debug('Actual scale: 1/%f' % canvas.get_actual_scale())
+
+                ctx.rectangle(0, 0, self._usable_map_area_width_pt, self._usable_map_area_height_pt)
+                ctx.clip()
+
+                dest_tag = "mypage%d" % (map_number + self._first_map_page_number)
+                draw_utils.anchor(ctx, dest_tag)
+
+                mapnik.render(rendered_map, ctx)
+
+                for overlay_canvas in overlay_canvases:
+                    rendered_overlay = overlay_canvas.get_rendered_map()
+                    mapnik.render(rendered_overlay, ctx)
+
+                # Place the vertical and horizontal square labels
+                ctx.save()
+                ctx.translate(Renderer.PRINT_BLEED_PT + commons.convert_pt_to_dots(self.grayed_margin_inside_pt if map_number % 2 else self.grayed_margin_outside_pt),
+                          Renderer.PRINT_BLEED_PT + commons.convert_pt_to_dots(self.grayed_margin_top_bottom_pt))
+                self._draw_labels(ctx, grid,
+                      commons.convert_pt_to_dots(self._usable_map_area_width_pt \
+                            - 2 * Renderer.PRINT_BLEED_PT \
+                            - self.grayed_margin_inside_pt - self.grayed_margin_outside_pt),
+                      commons.convert_pt_to_dots(self._usable_map_area_height_pt \
+                            - 2 * Renderer.PRINT_BLEED_PT \
+                            - 2 * self.grayed_margin_top_bottom_pt),
+                      commons.convert_pt_to_dots(self._grid_legend_margin_pt))
                 ctx.restore()
 
-                # blue stroke dash5: printable area
-                content_width -= self.grayed_margin_inside_pt + self.grayed_margin_outside_pt
-                content_height -= 2*self.grayed_margin_top_bottom_pt
-                margin_x += self.grayed_margin_inside_pt if map_number % 2 else self.grayed_margin_outside_pt
-                margin_y += self.grayed_margin_top_bottom_pt
+
+                # apply effect overlays
                 ctx.save()
-                ctx.set_source_rgba(0, 0, 1, .75)
-                ctx.set_dash([5.0, 5.0], 5.0/2.0)
-                ctx.rectangle(margin_x, margin_y, content_width, content_height)
-                ctx.stroke()
+                # we have to undo border adjustments here
+                ctx.translate(-commons.convert_pt_to_dots(self.grayed_margin_inside_pt)/2,
+                          -commons.convert_pt_to_dots(self.grayed_margin_top_bottom_pt)/2)
+                self._map_canvas = canvas
+                for effect in overlay_effects:
+                    self.grid = grid
+                    effect.render(self, ctx)
                 ctx.restore()
 
-            ctx.save()
-            #LOG.info('Map page %d of %d' % (map_number + 1, len(self.pages)))
-            rendered_map = canvas.get_rendered_map()
-            # LOG.debug('Mapnik scale: 1/%f' % rendered_map.scale_denominator())
-            # LOG.debug('Actual scale: 1/%f' % canvas.get_actual_scale())
 
-            ctx.rectangle(0, 0, self._usable_map_area_width_pt, self._usable_map_area_height_pt)
-            ctx.clip()
+                # Render the page number
+                draw_utils.render_page_number(ctx, map_number + self._first_map_page_number,
+                                              self._usable_map_area_width_pt,
+                                              self._usable_map_area_height_pt,
+                                              self.grayed_margin_inside_pt,
+                                              self.grayed_margin_outside_pt,
+                                              self.grayed_margin_top_bottom_pt,
+                                              Renderer.PRINT_BLEED_PT,
+                                              transparent_background = True)
+                self._render_neighbour_arrows(ctx, cairo_surface, map_number,
+                                              len(str(len(self.pages) + self._first_map_page_number)))
 
-            dest_tag = "mypage%d" % (map_number + self._first_map_page_number)
-            draw_utils.anchor(ctx, dest_tag)
-
-            mapnik.render(rendered_map, ctx)
-
-            for overlay_canvas in overlay_canvases:
-                rendered_overlay = overlay_canvas.get_rendered_map()
-                mapnik.render(rendered_overlay, ctx)
-
-            # Place the vertical and horizontal square labels
-            ctx.save()
-            ctx.translate(Renderer.PRINT_BLEED_PT + commons.convert_pt_to_dots(self.grayed_margin_inside_pt if map_number % 2 else self.grayed_margin_outside_pt),
-                      Renderer.PRINT_BLEED_PT + commons.convert_pt_to_dots(self.grayed_margin_top_bottom_pt))
-            self._draw_labels(ctx, grid,
-                  commons.convert_pt_to_dots(self._usable_map_area_width_pt \
-                        - 2 * Renderer.PRINT_BLEED_PT \
-                        - self.grayed_margin_inside_pt - self.grayed_margin_outside_pt),
-                  commons.convert_pt_to_dots(self._usable_map_area_height_pt \
-                        - 2 * Renderer.PRINT_BLEED_PT \
-                        - 2 * self.grayed_margin_top_bottom_pt),
-                  commons.convert_pt_to_dots(self._grid_legend_margin_pt))
-            ctx.restore()
-
-
-            # apply effect overlays
-            ctx.save()
-            # we have to undo border adjustments here
-            ctx.translate(-commons.convert_pt_to_dots(self.grayed_margin_inside_pt)/2,
-                      -commons.convert_pt_to_dots(self.grayed_margin_top_bottom_pt)/2)
-            self._map_canvas = canvas
-            for effect in overlay_effects:
-                self.grid = grid
-                effect.render(self, ctx)
-            ctx.restore()
-
-
-            # Render the page number
-            draw_utils.render_page_number(ctx, map_number + self._first_map_page_number,
-                                          self._usable_map_area_width_pt,
-                                          self._usable_map_area_height_pt,
-                                          self.grayed_margin_inside_pt,
-                                          self.grayed_margin_outside_pt,
-                                          self.grayed_margin_top_bottom_pt,
-                                          Renderer.PRINT_BLEED_PT,
-                                          transparent_background = True)
-            self._render_neighbour_arrows(ctx, cairo_surface, map_number,
-                                          len(str(len(self.pages) + self._first_map_page_number)))
-
-            cairo_surface.set_page_label('Map page %d' % (map_number + self._first_map_page_number))
-            cairo_surface.show_page()
-            ctx.restore()
+                cairo_surface.set_page_label('Map page %d' % (map_number + self._first_map_page_number))
+                cairo_surface.show_page()
+                ctx.restore()
 
         ctx.restore()
 

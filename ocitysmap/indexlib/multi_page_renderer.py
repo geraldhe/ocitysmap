@@ -190,7 +190,6 @@ class MultiPageStreetIndexRenderer:
         index_area_w_pt = self.rendering_area_w - 2*self.print_bleed_pt - self.margin_inside_pt - self.margin_outside_pt
         city_layout.set_width(int(UTILS.convert_pt_to_dots((index_area_w_pt) * Pango.SCALE, dpi)))
 
-        firstPage = True
         self._draw_page_stroke()
         self._draw_page_content_stroke()
 
@@ -227,10 +226,6 @@ class MultiPageStreetIndexRenderer:
         #LOG.debug(list(filter(lambda x: len(self.index_categories[cities[x]]) > 0, cities)))
         for city in cities:
             city_index = city_index + 1
-            # create new page - if it is not the first one
-            #if not firstPage:
-            #    self._new_page()
-            firstPage = False
 
             margin_top_page += max_drawing_height # add max drawing height of previous city
             index_area_h_pt = self.rendering_area_h - self.print_bleed_pt - self.margin_top_bottom_pt - margin_top_page
@@ -322,7 +317,7 @@ class MultiPageStreetIndexRenderer:
             #LOG.debug("max_location_drawing_width: %f" % max_location_drawing_width)
 
             # Find best number of columns
-            max_drawing_width = max_label_drawing_width + max_location_drawing_width + 2 * margin
+            # max_drawing_width = max_label_drawing_width + max_location_drawing_width + 2 * margin
             max_drawing_height = col_max_height
             needed_drawing_height = max_drawing_height
             if (index_area_h_pt < max_drawing_height):

@@ -135,6 +135,7 @@ class RenderingConfiguration:
         # Setup by OCitySMap::render() from osmid(s) and bounding_box fields:
         self.polygon_wkt     = None # str (WKT of interest)
         self.name_to_polygon = None # dict(name -> polygon)
+        self.polygon_cut_wkt = None # str (WKT osmids_area intersect subpolys) -> for printing complete street index (streets not on map)
 
         # Setup by OCitySMap::render() from language field:
         self.i18n            = None # i18n object
@@ -194,7 +195,7 @@ class OCitySMap:
         self.__dbs = {}
 
         # JavaScript Debug-String: gets written to ... if debug-variable ... is set
-        self.js_debug_string = '';
+        self.js_debug_string = ''
 
         # Read stylesheet configuration
         self.STYLESHEET_REGISTRY = Stylesheet.create_all_from_config(self._parser)
@@ -421,7 +422,7 @@ SELECT ST_AsText(ST_LongestLine(
         overlay_names = []
         for o in self.OVERLAY_REGISTRY:
             overlay_names.append(o.name)
-        return overlay_names;
+        return overlay_names
 
     def get_overlay_by_name(self, name):
         """Returns a overlay stylesheet by its key name."""
@@ -440,7 +441,7 @@ SELECT ST_AsText(ST_LongestLine(
         renderer_names = []
         for r in renderers.get_renderers():
             renderer_names.append(r.name)
-        return renderer_names;
+        return renderer_names
 
     def get_all_paper_sizes(self, section = None):
         if section is None:
@@ -488,9 +489,6 @@ SELECT ST_AsText(ST_LongestLine(
         os.environ['PGOPTIONS'] = "-c mapnik.language=" + config.language[:2] + " -c mapnik.locality=" + config.language[:5] + " -c mapnik.country=" + config.language[3:5]
         LOG.debug("PGOPTIONS '%s'" % os.environ.get('PGOPTIONS', 'not set'))
 
-        result_bbox = None
-        config_bbox = None
-
         result_wkt = None # empty by default
         osmids_wkt = None # empty by default
         add_wkt = None # empty by default
@@ -532,6 +530,10 @@ SELECT ST_AsText(ST_LongestLine(
                 raise ValueError("diff_wkt is empty!")
             result_wkt = result_wkt.difference(diff_wkt)
             self._debug_on_map(result_wkt, "osmids + addpolys - subpolys", "black")
+
+            # area that got cut away from osmids
+            config.polygon_cut_wkt = diff_wkt.intersection(osmids_wkt)
+            self._debug_on_map(config.polygon_cut_wkt, "osmids intersect subpolys", "orange")
 
         if (result_wkt.is_empty):
             raise ValueError("nothing to render. area of result_wkt (osmids + addpolys) is empty!")

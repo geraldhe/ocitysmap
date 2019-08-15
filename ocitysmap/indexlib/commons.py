@@ -168,7 +168,7 @@ class IndexItem:
         self.label        = label
         self.endpoint1    = endpoint1
         self.endpoint2    = endpoint2
-        self.location_str = None
+        self.location_str = "N/A"
         self.page_number  = page_number
 
     def __str__(self):
