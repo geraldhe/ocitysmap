@@ -79,7 +79,7 @@ class Renderer:
     DEFAULT_MULTIPAGE_SCALE = 11000 # Ziel ~ 9500 ?
     MAX_MULTIPAGE_MAPPAGES  = 5000
     
-    DEBUG = True
+    DEBUG = False
 
     def __init__(self, db, rc, tmpdir, dpi):
         """
