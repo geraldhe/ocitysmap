@@ -33,47 +33,82 @@
   <body>
     <div id="map" style="width: 100%; height: 600px"></div>
     <script>
-  function BoundingBox(lat1, lng1, lat2, lng2, str, color) {
-    var p1 = new L.LatLng(lat1, lng1),
-    p2 = new L.LatLng(lat1, lng2),
-    p3 = new L.LatLng(lat2, lng2),
-    p4 = new L.LatLng(lat2, lng1),
-    polygonPoints = [p1, p2, p3, p4, p1],
-    polygon = new L.Polygon(polygonPoints, color);
+      function BoundingBox(lat1, lng1, lat2, lng2, str, color) {
+        var p1 = new L.LatLng(lat1, lng1),
+        p2 = new L.LatLng(lat1, lng2),
+        p3 = new L.LatLng(lat2, lng2),
+        p4 = new L.LatLng(lat2, lng1),
+        polygonPoints = [p1, p2, p3, p4, p1],
+        polygon = new L.Polygon(polygonPoints, color);
 
-    polygon.bindPopup(str);
-    map.addLayer(polygon);
-  }
+        polygon.bindPopup(str);
+        map.addLayer(polygon);
+      }
 
-document.addEventListener('DOMContentLoaded', (event) => {
-  var map = new L.Map('map', {editable: true});
+      document.addEventListener('DOMContentLoaded', (event) => {
+        map = new L.Map('map', { editable: true });
 
-  // create the tile layer with correct attribution
-  var osmUrl='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
-  var osmAttrib='Map data © <a href="https://openstreetmap.org">OpenStreetMap</a> contributors';
-  var osm = new L.TileLayer(osmUrl, {minZoom: 8, maxZoom: 25, attribution: osmAttrib});
-  map.addLayer(osm);
-  map.setView(new L.LatLng(48.22708, 14.78171), 12);
+        function onEachFeature(feature, layer) {
+          var popupContent = "<p><strong>label:</strong> " + feature.properties.name + "<br /><strong>type:</strong> " + feature.geometry.type + "</p>";
+          if (feature.properties && feature.properties.popupContent) {
+            popupContent += feature.properties.popupContent;
+          }
 
-  var deleteShape = function (e) {
-    if ((e.originalEvent.ctrlKey || e.originalEvent.metaKey) && this.editEnabled()) this.editor.deleteShapeAt(e.latlng);
-  };
-  map.on('layeradd', function (e) {
-      if (e.layer instanceof L.Path) e.layer.on('click', L.DomEvent.stop).on('click', deleteShape, e.layer);
-      if (e.layer instanceof L.Path) e.layer.on('dblclick', L.DomEvent.stop).on('dblclick', e.layer.toggleEdit);
-  });
+          layer.bindPopup(popupContent);
+        }
 
-  L.EditControl = L.Control.extend({
-        options: {
+        function addGeoJsonEntry(entry) {
+          var layer = L.geoJSON(entry, {style:{color: entry.properties.color}, onEachFeature: onEachFeature});
+
+          var lbl = document.createElement("label");
+          lbl.innerText = entry.properties.name;
+
+          var cb = document.createElement("input");
+          cb.setAttribute("type", "checkbox");
+          cb.setAttribute("title", entry.properties.name);
+          if (entry.properties.checked){
+            layer.addTo(map);
+            cb.setAttribute("checked", "checked");
+          }
+          cb.addEventListener('change', (event) => {
+            if (event.target.checked) {
+              layer.addTo(map);
+            } else {
+              map.removeLayer(layer);
+            }
+          });
+
+          lbl.appendChild(cb);
+          divLayers.appendChild(lbl);
+          divLayers.appendChild(document.createElement("br"));
+        }
+
+        // create the tile layer with correct attribution
+        var osmUrl='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+        var osmAttrib='Map data © <a href="https://openstreetmap.org">OpenStreetMap</a> contributors';
+        var osm = new L.TileLayer(osmUrl, { minZoom: 8, maxZoom: 20, attribution: osmAttrib });
+        map.addLayer(osm);
+        map.setView(new L.LatLng(48.3, 14.7), 11);
+
+        var deleteShape = function (e) {
+          if ((e.originalEvent.ctrlKey || e.originalEvent.metaKey) && this.editEnabled()) this.editor.deleteShapeAt(e.latlng);
+        };
+        map.on('layeradd', function (e) {
+            if (e.layer instanceof L.Path) e.layer.on('click', L.DomEvent.stop).on('click', deleteShape, e.layer);
+            if (e.layer instanceof L.Path) e.layer.on('dblclick', L.DomEvent.stop).on('dblclick', e.layer.toggleEdit);
+        });
+
+        L.EditControl = L.Control.extend({
+          options: {
             position: 'topleft',
             callback: null,
             kind: '',
             html: ''
-        },
+          },
 
-        onAdd: function (map) {
+          onAdd: function (map) {
             var container = L.DomUtil.create('div', 'leaflet-control leaflet-bar'),
-                link = L.DomUtil.create('a', '', container);
+              link = L.DomUtil.create('a', '', container);
 
             link.href = '#';
             link.title = 'Create a new ' + this.options.kind;
@@ -84,120 +119,129 @@ document.addEventListener('DOMContentLoaded', (event) => {
                       }, this);
 
             return container;
-        }
-    });
+          }
+        });
 
-    L.NewPolygonControl = L.EditControl.extend({
-        options: {
+        L.NewPolygonControl = L.EditControl.extend({
+          options: {
             position: 'topleft',
             callback: map.editTools.startPolygon,
             kind: 'polygon',
             html: '▰'
-        }
-    });
+          }
+        });
 
-    L.NewRectangleControl = L.EditControl.extend({
-        options: {
+        L.NewRectangleControl = L.EditControl.extend({
+          options: {
             position: 'topleft',
             callback: map.editTools.startRectangle,
             kind: 'rectangle',
             html: '⬛'
-        }
-    });
+          }
+        });
 
-    L.NewCircleControl = L.EditControl.extend({
-        options: {
+        L.NewCircleControl = L.EditControl.extend({
+          options: {
             position: 'topleft',
             callback: map.editTools.startCircle,
             kind: 'circle',
             html: '⬤'
+          }
+        });
+
+        map.addControl(new L.NewPolygonControl());
+        map.addControl(new L.NewRectangleControl());
+        map.addControl(new L.NewCircleControl());
+
+        function BoundingBox(lat1, lng1, lat2, lng2, str, color) {
+          var p1 = new L.LatLng(lat1, lng1),
+          p2 = new L.LatLng(lat1, lng2),
+          p3 = new L.LatLng(lat2, lng2),
+          p4 = new L.LatLng(lat2, lng1),
+          polygonPoints = [p1, p2, p3, p4, p1],
+          polygon = new L.Polygon(polygonPoints, color);
+
+          polygon.bindPopup(str);
+          map.addLayer(polygon);
         }
+
+        var entries = [];
+
+$content
+
+        divLayers = document.getElementById('layers');
+        entries.forEach(function(entry) { addGeoJsonEntry(entry); });
+        
+        document.getElementById('export_wkt').addEventListener('click', function() {
+          document.getElementById('wkttxt').value = '';
+          map.eachLayer(function(layer) {
+            try {
+              if (layer.feature) {
+                // layer.disableEdit();
+                console.log('exporting layer');
+                document.getElementById('wkttxt').value += wellknown.stringify(layer.toGeoJSON()) + '\r\n';
+              }
+            } catch (e) {
+              console.error(e);
+            }
+          });
+          
+        });
+
+        document.getElementById('import_wkt').addEventListener('click', function() {
+          try {
+            parsedValue = wellknown.parse(document.getElementById('wkttxt').value);
+            parsedValue.properties = {
+              "name": document.getElementById("importname").value, 
+              "color": document.getElementById("importcolor").value
+              };
+            parsedValue.geometry = parsedValue.coordinates;
+            console.log(parsedValue);
+            addGeoJsonEntry(parsedValue);
+          }catch (e){
+            console.error(e);
+            window.alert(e);
+          }
+        });
+
+        document.getElementById('clear').addEventListener('click', function() {
+          map.eachLayer(function(layer) {
+            document.getElementById('wkttxt').value = '';
+            try {
+              if (layer.feature) {
+                map.removeLayer(layer);
+              }
+            } catch (e) {
+              console.error(e);
+            }
+          });
+          divLayers.innerHTML = '';
+        });
+
+        /* List of bounding boxes 
+        BoundingBox(48.001253,5.885540,47.984034,5.903454, "before-0", { color: "#ff0000" })
+        BoundingBox(47.996253,5.890540,47.989034,5.898454, "after-0", { color: "#00ff00" })
+        BoundingBox(48.001253,5.901658,47.984034,5.919572, "before-1", { color: "#ff0000" })
+        BoundingBox(47.996253,5.906658,47.989034,5.914572, "after-1", { color: "#00ff00" })
+        BoundingBox(48.001253,5.917775,47.984034,5.935689, "before-2", { color: "#ff0000" })
+        BoundingBox(47.996253,5.922775,47.989034,5.930689, "after-2", { color: "#00ff00" })
+        BoundingBox(47.985237,5.885540,47.968013,5.903454, "before-3", { color: "#ff0000" })
+        BoundingBox(47.980237,5.890540,47.973013,5.898454, "after-3", { color: "#00ff00" })
+        BoundingBox(47.985237,5.901658,47.968013,5.919572, "before-4", { color: "#ff0000" })
+        BoundingBox(47.980237,5.906658,47.973013,5.914572, "after-4", { color: "#00ff00" })
+        BoundingBox(47.985237,5.917775,47.968013,5.935689, "before-5", { color: "#ff0000" })
+        BoundingBox(47.980237,5.922775,47.973013,5.930689, "after-5", { color: "#00ff00" })
+        map.fitBounds(); */
     });
-
-  map.addControl(new L.NewPolygonControl());
-  map.addControl(new L.NewRectangleControl());
-  map.addControl(new L.NewCircleControl());
-
-  function onEachFeature(feature, layer) {
-    var popupContent = "<p><strong>label:</strong> " + feature.properties.name + "<br /><strong>type:</strong> " + feature.geometry.type + "</p>";
-    if (feature.properties && feature.properties.popupContent) {
-      popupContent += feature.properties.popupContent;
-    }
-
-    layer.bindPopup(popupContent);
-  }
-
-  function BoundingBox(lat1, lng1, lat2, lng2, str, color) {
-      var p1 = new L.LatLng(lat1, lng1),
-      p2 = new L.LatLng(lat1, lng2),
-      p3 = new L.LatLng(lat2, lng2),
-      p4 = new L.LatLng(lat2, lng1),
-      polygonPoints = [p1, p2, p3, p4, p1],
-      polygon = new L.Polygon(polygonPoints, color);
-
-      polygon.bindPopup(str);
-      map.addLayer(polygon);
-  }
-
-  var entries = [];
-
-  $content
-
-  divLayers = document.getElementById('layers');
-  entries.forEach(function(entry) {
-    var layer = L.geoJSON(entry, {style:{color: entry.properties.color}, onEachFeature: onEachFeature});
-    layer.addTo(map);
-
-    var lbl = document.createElement("label");
-    lbl.innerText = entry.properties.name;
-
-    var cb = document.createElement("input");
-    cb.setAttribute("type", "checkbox");
-    cb.setAttribute("title", entry.properties.name);
-    cb.setAttribute("label", "test");
-    cb.setAttribute("checked", "checked");
-    cb.addEventListener('change', (event) => {
-      if (event.target.checked) {
-        layer.addTo(map);
-      } else {
-        map.removeLayer(layer);
-      }
-    });
-
-    lbl.appendChild(cb);
-    divLayers.appendChild(lbl);
-    divLayers.appendChild(document.createElement("br"));
-  });
-
-  document.getElementById('wktbtn').addEventListener('click', function() {
-    map.eachLayer(function(layer) {
-      try { // find a better method...
-        layer.disableEdit();
-        console.log(wellknown.stringify(layer.toGeoJSON()));
-      } catch { }
-    });
-  });
-
-/* List of bounding boxes 
-BoundingBox(48.001253,5.885540,47.984034,5.903454, "before-0", { color: "#ff0000" })
-BoundingBox(47.996253,5.890540,47.989034,5.898454, "after-0", { color: "#00ff00" })
-BoundingBox(48.001253,5.901658,47.984034,5.919572, "before-1", { color: "#ff0000" })
-BoundingBox(47.996253,5.906658,47.989034,5.914572, "after-1", { color: "#00ff00" })
-BoundingBox(48.001253,5.917775,47.984034,5.935689, "before-2", { color: "#ff0000" })
-BoundingBox(47.996253,5.922775,47.989034,5.930689, "after-2", { color: "#00ff00" })
-BoundingBox(47.985237,5.885540,47.968013,5.903454, "before-3", { color: "#ff0000" })
-BoundingBox(47.980237,5.890540,47.973013,5.898454, "after-3", { color: "#00ff00" })
-BoundingBox(47.985237,5.901658,47.968013,5.919572, "before-4", { color: "#ff0000" })
-BoundingBox(47.980237,5.906658,47.973013,5.914572, "after-4", { color: "#00ff00" })
-BoundingBox(47.985237,5.917775,47.968013,5.935689, "before-5", { color: "#ff0000" })
-BoundingBox(47.980237,5.922775,47.973013,5.930689, "after-5", { color: "#00ff00" })
-map.fitBounds(); */
-
-});
-    </script>
+  </script>
   <h2>Layers</h2>
+  <button id="clear">Clear layers</button>
   <div id="layers"></div>
-  <button id="wktbtn">to wkt</button>
+  <button id="export_wkt">Export visible layers as WKT-string</button>
+  <textarea style="width: 100%; min-height: 200px" id="wkttxt"></textarea>
+  <div>
+    <button id="import_wkt">import wkt</button> with name <input type="text" id="importname" value="import" /> and color <input type="text" id="importcolor" value="orange" />
+  </div>
   </body>
 </html>
 

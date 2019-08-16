@@ -260,8 +260,8 @@ class MultiPageRenderer(Renderer):
                     self.page_disposition[row].append(None)
 
         # Debug: show per-page bounding boxes as JS code
-        for i, (bb, bb_inner) in enumerate(bboxes):
-           print(bb_inner.as_javascript(name="p%d" % i))
+        #for i, (bb, bb_inner) in enumerate(bboxes):
+        #   print(bb_inner.as_javascript(name="p%d" % i))
 
         self.pages = []
 
@@ -275,7 +275,7 @@ class MultiPageRenderer(Renderer):
         
         # Create an overview map (top, left, bottom, right)
         overview_bb = self._geo_bbox.create_expanded2(overview_topbottom_pad, overview_left_pad, overview_topbottom_pad, overview_right_pad)
-        print(overview_bb.as_javascript("overview", "#f0c003"))
+        #print(overview_bb.as_javascript("overview", "#f0c003"))
         # Create the overview grid
         self.overview_grid = OverviewGrid(overview_bb,
                      [bb_inner for bb, bb_inner in bboxes], self.rc.i18n.isrtl())

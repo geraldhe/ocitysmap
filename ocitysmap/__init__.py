@@ -345,7 +345,7 @@ SELECT ST_AsText(ST_LongestLine(
             osmids (integer[]): OSM IDs
 
         Return:
-            tuple (WKT bbox, WKT area)
+            tuple (WKT bbox, WKT area, dict(name, WKT area))
         """
 
         results = []
@@ -373,7 +373,7 @@ SELECT ST_AsText(ST_LongestLine(
                 raise LookupError("No such OSM id: %d" % osmids)
 
             geom = polygon_geom.union(line_geom)
-            name_to_wkt[name] = geom;
+            name_to_wkt[name] = geom
             results.append(geom)
 
         result = cascaded_union(results)
@@ -401,7 +401,7 @@ SELECT ST_AsText(ST_LongestLine(
         style_names = []
         for s in self.STYLESHEET_REGISTRY:
             style_names.append(s.name)
-        return style_names;
+        return style_names
 
     def get_stylesheet_by_name(self, name):
         """Returns a stylesheet by its key name."""
@@ -498,11 +498,13 @@ SELECT ST_AsText(ST_LongestLine(
             osmid_bbox_str, osmid_area, config.name_to_polygon \
                 = self.get_geographic_info(config.osmids)
             osmids_wkt = shapely.wkt.loads(osmid_area)
-            self._debug_on_map(osmids_wkt, "osmids", "yellow")
+            self._debug_on_map(osmids_wkt, "osmids", "yellow", False)
+            for name in config.name_to_polygon:
+                self._debug_on_map(config.name_to_polygon[name], "osmid: " + name, "green", True)
 
         if config.addpolys is not None:
             add_wkt = shapely.wkt.loads(config.addpolys)
-            self._debug_on_map(add_wkt, "addpolys", "orange")
+            self._debug_on_map(add_wkt, "addpolys", "orange", False)
             if not add_wkt.is_valid:
                 raise ValueError("add_wkt is invalid!")
             if add_wkt.is_empty:
@@ -511,7 +513,7 @@ SELECT ST_AsText(ST_LongestLine(
         # add osmids and addpolys
         if osmids_wkt is not None and add_wkt is not None:
             result_wkt = shapely.ops.unary_union([osmids_wkt, add_wkt])
-            self._debug_on_map(result_wkt, "osmids + addpolys", "green")
+            self._debug_on_map(result_wkt, "osmids + addpolys", "grey", False)
         elif osmids_wkt is not None:
             result_wkt = osmids_wkt
         else:
@@ -523,17 +525,17 @@ SELECT ST_AsText(ST_LongestLine(
         # subtract subpolys
         if config.subpolys is not None:
             diff_wkt = shapely.ops.unary_union([shapely.wkt.loads(config.subpolys)])
-            self._debug_on_map(diff_wkt, "subpolys", "red")
+            self._debug_on_map(diff_wkt, "subpolys", "red", False)
             if not diff_wkt.is_valid:
                 raise ValueError("diff_wkt is invalid!")
             if diff_wkt.is_empty:
                 raise ValueError("diff_wkt is empty!")
             result_wkt = result_wkt.difference(diff_wkt)
-            self._debug_on_map(result_wkt, "osmids + addpolys - subpolys", "black")
+            self._debug_on_map(result_wkt, "result (to be rendered): osmids + addpolys - subpolys", "black", True)
 
             # area that got cut away from osmids
             config.polygon_cut_wkt = diff_wkt.intersection(osmids_wkt)
-            self._debug_on_map(config.polygon_cut_wkt, "osmids intersect subpolys", "orange")
+            self._debug_on_map(config.polygon_cut_wkt, "osmids intersect subpolys", "orange", False)
 
         if (result_wkt.is_empty):
             raise ValueError("nothing to render. area of result_wkt (osmids + addpolys) is empty!")
@@ -613,15 +615,15 @@ SELECT ST_AsText(ST_LongestLine(
         elif output_format == 'svg':
             surface = cairo.SVGSurface(output_filename,
                                        renderer.paper_width_pt, renderer.paper_height_pt)
-            surface.restrict_to_version(cairo.SVGVersion.VERSION_1_2);
+            surface.restrict_to_version(cairo.SVGVersion.VERSION_1_2)
         elif output_format == 'svgz':
             surface = cairo.SVGSurface(gzip.GzipFile(output_filename, 'wb'),
                                        renderer.paper_width_pt, renderer.paper_height_pt)
-            surface.restrict_to_version(cairo.SVGVersion.VERSION_1_2);
+            surface.restrict_to_version(cairo.SVGVersion.VERSION_1_2)
         elif output_format == 'pdf':
             surface = cairo.PDFSurface(output_filename,
                                        renderer.paper_width_pt, renderer.paper_height_pt)
-            surface.restrict_to_version(cairo.PDFVersion.VERSION_1_5);
+            surface.restrict_to_version(cairo.PDFVersion.VERSION_1_5)
 
             surface.set_metadata(cairo.PDFMetadata.CREATOR,
                                  'MyOSMatic <https://print.get-map.org/>')
@@ -657,9 +659,9 @@ SELECT ST_AsText(ST_LongestLine(
 
         surface.finish()
 
-    def _debug_on_map(self, wkt, label, color = 'red'):
-        g2 = Feature(geometry=wkt, properties={'name': label, 'color': color})
-        self.js_debug_string = self.js_debug_string + 'entries.push(' + json.dumps(g2) + ');\r\n';
+    def _debug_on_map(self, wkt, label, color = 'red', checked = False):
+        g2 = Feature(geometry=wkt, properties={'name': label, 'color': color, 'checked': checked})
+        self.js_debug_string += '\t\t\t\tentries.push(' + json.dumps(g2) + ');\r\n\r\n'
 
     def __del__(self):
         if True:
