@@ -1213,7 +1213,7 @@ class MultiPageRenderer(Renderer):
             draw_utils.draw_text_adjusted(ctx, str(idx + self._first_map_page_number),
                                           x, y, w, h,
                                           max_char_number=len(str(len(overview_grid._pages_bbox)+3)),
-                                          text_color=(0, 0, 0, 0.6))
+                                          text_color=(1, 0, 0, 1))
 
             ctx.save()
             ctx.translate(x-w/2, y-h/2)
