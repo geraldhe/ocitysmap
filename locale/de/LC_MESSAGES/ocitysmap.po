@@ -22,11 +22,11 @@ msgstr ""
 
 #: ocitysmap/indexlib/indexer.py:261
 msgid "Places of worship"
-msgstr "Anbetungsstätten"
+msgstr "Religion"
 
 #: ocitysmap/indexlib/indexer.py:262
 msgid "Place of worship"
-msgstr "Anbetungsstätte"
+msgstr "Religion"
 
 #: ocitysmap/indexlib/indexer.py:263 ocitysmap/indexlib/indexer.py:264
 #: ocitysmap/indexlib/indexer.py:265 ocitysmap/indexlib/indexer.py:266
@@ -77,7 +77,7 @@ msgstr "Polizei"
 
 #: ocitysmap/indexlib/indexer.py:503
 msgid "Villages"
-msgstr "Dörfer"
+msgstr "Ortsteile"
 
 #: ocitysmap/layoutlib/multi_page_renderer.py:584
 #: ocitysmap/layoutlib/single_page_renderers.py:368
