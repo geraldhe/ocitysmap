@@ -546,6 +546,7 @@ order by village_name""" \
             db.rollback()
             cursor.execute(query % {'way':'st_buffer(way, 0)'})
 
+        current_street_category = None
         for village_name, color, linestring in cursor.fetchall():
             # Parse the WKT from the largest linestring in shape
             try:
@@ -560,6 +561,27 @@ order by village_name""" \
             endpoint1 = ocitysmap.coords.Point(s_endpoint1[1], s_endpoint1[0])
             endpoint2 = ocitysmap.coords.Point(s_endpoint2[1], s_endpoint2[0])
             current_category.items.append(commons.StreetIndexItem(village_name,
+                                                                  color,
+                                                                  endpoint1,
+                                                                  endpoint2,
+                                                                  self._page_number))
+
+            # Create new category if needed
+            cat_name = ""
+            for c in village_name:
+                if c.isdigit():
+                    cat_name = self._i18n.number_category_name()
+                    break
+                if c.isalpha():
+                    cat_name = self._i18n.upper_unaccent_string(c)
+                    if cat_name != "":
+                        break
+
+            if (not current_street_category or current_street_category.name != cat_name):
+                current_street_category = commons.StreetIndexCategory(cat_name)
+                result.append(current_street_category)
+            
+            current_street_category.items.append(commons.StreetIndexItem(village_name,
                                                                   color,
                                                                   endpoint1,
                                                                   endpoint2,
