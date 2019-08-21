@@ -322,19 +322,23 @@ class StreetIndex:
         result = []
         current_category = None
         for street_name, color, linestring in sorted_sl:
-            # Create new category if needed
-            cat_name = ""
-            for c in street_name:
-                if c.isdigit():
-                    cat_name = self._i18n.number_category_name()
-                    break
-                if c.isalpha():
-                    cat_name = self._i18n.upper_unaccent_string(c)
-                    if cat_name != "":
+            if street_name.startswith("Güterweg"):
+                cat_name = "Güterwege"
+                street_name = street_name[9:]
+            else:
+                # Create new category if needed
+                cat_name = ""
+                for c in street_name:
+                    if c.isdigit():
+                        cat_name = self._i18n.number_category_name()
                         break
+                    if c.isalpha():
+                        cat_name = self._i18n.upper_unaccent_string(c)
+                        if cat_name != "":
+                            break
 
             if (not current_category or current_category.name != cat_name):
-                current_category = commons.StreetIndexCategory(cat_name)
+                current_category = commons.StreetIndexCategory(cat_name, None, cat_name != "Güterwege")
                 result.append(current_category)
 
             # Parse the WKT from the largest linestring in shape
