@@ -313,14 +313,15 @@ class StreetIndex:
 
         try:
             sorted_sl = sorted([(self._i18n.user_readable_street(name),
-                                 linestring) for name,linestring in sl],
+                                 color,
+                                 linestring) for name,color,linestring in sl],
                                key = natsort_keygen(alg=ns.LOCALE|ns.IGNORECASE, key=lambda street: street[0]))
         finally:
             locale.setlocale(locale.LC_COLLATE, prev_locale)
 
         result = []
         current_category = None
-        for street_name, linestring in sorted_sl:
+        for street_name, color, linestring in sorted_sl:
             # Create new category if needed
             cat_name = ""
             for c in street_name:
@@ -347,6 +348,7 @@ class StreetIndex:
             endpoint1 = ocitysmap.coords.Point(s_endpoint1[1], s_endpoint1[0])
             endpoint2 = ocitysmap.coords.Point(s_endpoint2[1], s_endpoint2[0])
             current_category.items.append(commons.StreetIndexItem(street_name,
+                                                                  color,
                                                                   endpoint1,
                                                                   endpoint2,
                                                                   self._page_number))
@@ -371,19 +373,19 @@ class StreetIndex:
 
         # PostGIS >= 1.5.0 for this to work:
         query = """
-select name,
+select name, color,
        --- street_kind, -- only when group by is: group by name, street_kind
        st_astext(st_transform(ST_LongestLine(street_path, street_path),
                               4326)) as longest_linestring
 from
-  (select name,
+  (select name, GETCOLOR(HASHTEXT(name)) AS color,
           -- highway as street_kind, -- only when group by name, street_kind
           st_intersection(%(wkb_limits)s,
                           st_linemerge(st_collect(%%(way)s))) as street_path
    from planet_osm_line
           where trim(name) != '' and highway is not null
                 and st_intersects(%%(way)s, %(wkb_limits)s)
-   group by name ---, street_kind -- (optional)
+   group by name, GETCOLOR(HASHTEXT(name)) ---, street_kind -- (optional)
    order by name) as foo;
 """ % dict(wkb_limits = ("st_transform(ST_GeomFromText('%s', 4326), 3857)"
                          % (polygon_wkt,)))
@@ -482,6 +484,7 @@ order by amenity_name""" \
                 endpoint1 = ocitysmap.coords.Point(s_endpoint1[1], s_endpoint1[0])
                 endpoint2 = ocitysmap.coords.Point(s_endpoint2[1], s_endpoint2[0])
                 current_category.items.append(commons.StreetIndexItem(amenity_name,
+                                                                      None, # color
                                                                       endpoint1,
                                                                       endpoint2,
                                                                       self._page_number))
@@ -512,11 +515,11 @@ order by amenity_name""" \
         result.append(current_category)
 
         query = """
-select village_name,
+select village_name, color,
        st_astext(st_transform(ST_LongestLine(village_contour, village_contour),
                               4326)) as longest_linestring
 from (
-       select name as village_name,
+       select name as village_name, GETCOLOR(HASHTEXT(name)) AS color,
               st_intersection(%(wkb_limits)s, %%(way)s) as village_contour
        from planet_osm_point
        where trim(name) != ''
@@ -543,7 +546,7 @@ order by village_name""" \
             db.rollback()
             cursor.execute(query % {'way':'st_buffer(way, 0)'})
 
-        for village_name, linestring in cursor.fetchall():
+        for village_name, color, linestring in cursor.fetchall():
             # Parse the WKT from the largest linestring in shape
             try:
                 s_endpoint1, s_endpoint2 = map(lambda s: s.split(),
@@ -557,6 +560,7 @@ order by village_name""" \
             endpoint1 = ocitysmap.coords.Point(s_endpoint1[1], s_endpoint1[0])
             endpoint2 = ocitysmap.coords.Point(s_endpoint2[1], s_endpoint2[0])
             current_category.items.append(commons.StreetIndexItem(village_name,
+                                                                  color,
                                                                   endpoint1,
                                                                   endpoint2,
                                                                   self._page_number))

@@ -352,7 +352,7 @@ class MultiPageStreetIndexRenderer:
             column_width = index_area_w_pt / columns_count
             #LOG.debug("column_width: %d" % column_width)
 
-            column_layout.set_width(int(UTILS.convert_pt_to_dots((column_width - margin) * Pango.SCALE, dpi)))
+            column_layout.set_width(int(UTILS.convert_pt_to_dots((column_width - margin - 5) * Pango.SCALE, dpi)))
             label_layout.set_width(int(UTILS.convert_pt_to_dots((column_width - margin - max_location_drawing_width - 2 * label_em) * Pango.SCALE, dpi)))
             header_layout.set_width(int(UTILS.convert_pt_to_dots((column_width - margin) * Pango.SCALE, dpi)))
 
@@ -461,10 +461,30 @@ class MultiPageStreetIndexRenderer:
                                 self.ctx.restore()
 
                     self.ctx.set_source_rgb(0,0,0)
+                    
+                    if (street.color is None):
+                        self.ctx.set_source_rgb(0,0,0)
+                    else:
+                        color = tuple(int(street.color.lstrip('#')[i:i+2], 16) / 255. for i in (0, 2, 4))
+
+                        # draw colorized rectangle next to street
+                        self.ctx.save()
+                        self.ctx.set_source_rgb(color[0],color[1],color[2])
+                        self.ctx.rectangle(
+                            self.rendering_area_x + (self.margin_inside_pt if (self.index_page_num + self.page_offset) % 2 else self.margin_outside_pt) + offset_x,
+                            self.rendering_area_y + offset_y,
+                            5,
+                            label_height
+                        )
+                        self.ctx.fill()
+                        self.ctx.restore()
+                        # alternative: colorize street-text:
+                        # self.ctx.set_source_rgb(color[0],color[1],color[2])
+
                     street.draw(self._i18n.isrtl(), self.ctx, pc, column_layout,
                                 UTILS.convert_pt_to_dots(label_fascent, dpi),
                                 UTILS.convert_pt_to_dots(label_fheight, dpi),
-                                UTILS.convert_pt_to_dots(self.rendering_area_x + (self.margin_inside_pt if (self.index_page_num + self.page_offset) % 2 else self.margin_outside_pt)
+                                UTILS.convert_pt_to_dots(self.rendering_area_x + 5 + (self.margin_inside_pt if (self.index_page_num + self.page_offset) % 2 else self.margin_outside_pt)
                                                         + offset_x, dpi),
                                 UTILS.convert_pt_to_dots(self.rendering_area_y + offset_y + label_fascent, dpi),
                                 label_layout,
@@ -514,7 +534,7 @@ if __name__ == '__main__':
                                                     string.ascii_uppercase),
                                             random.randint(1,19),
                                             ))]*random.randint(1, 20):
-            item              = commons.StreetIndexItem(label, None, None)
+            item              = commons.StreetIndexItem(label, None, None, None)
             item.location_str = location_str
             item.page_number  = random.randint(1, 100)
             items.append(item)

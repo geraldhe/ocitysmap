@@ -62,7 +62,7 @@ def render(renderer, ctx):
 
         index_text = "Note %d - %s" % (n, note['properties']['comments'][0]['text'])
 
-        index_items.append(StreetIndexItem(index_text[0:50], point, point, None))
+        index_items.append(StreetIndexItem(index_text[0:50], None, point, point, None))
 
         renderer._marker('red', str(n), lat, lon, ctx, renderer.dpi)
 

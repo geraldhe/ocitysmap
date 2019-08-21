@@ -712,7 +712,7 @@ if __name__ == '__main__':
                                                     string.ascii_uppercase),
                                             random.randint(1,19),
                                             ))]*4:
-            item              = commons.IndexItem(label, None, None)
+            item              = commons.IndexItem(label, None, None, None)
             item.location_str = location_str
             items.append(item)
         streets.append(commons.IndexCategory(i, items))

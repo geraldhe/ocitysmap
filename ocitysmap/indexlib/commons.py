@@ -156,16 +156,18 @@ class IndexItem:
     contains the item label (street name, POI name or description) and the
     humanized squares description.
     """
-    __slots__    = ['label', 'endpoint1', 'endpoint2', 'location_str','page_number']
+    __slots__    = ['label', 'color', 'endpoint1', 'endpoint2', 'location_str','page_number']
     # label        = None # str
+    # color        = None # str or None
     # endpoint1    = None # coords.Point
     # endpoint2    = None # coords.Point
     # location_str = None # str or None
     # page_number  = None # integer or None. Only used by multi-page renderer.
 
-    def __init__(self, label, endpoint1, endpoint2, page_number=None):
+    def __init__(self, label, color, endpoint1, endpoint2, page_number=None):
         assert label is not None
         self.label        = label
+        self.color        = color
         self.endpoint1    = endpoint1
         self.endpoint2    = endpoint2
         self.location_str = "N/A"
@@ -343,8 +345,8 @@ if __name__ == "__main__":
     fheight = ((font_metric.get_ascent() + font_metric.get_descent())
                / Pango.SCALE)
 
-    first_item  = StreetIndexItem('First Item', None, None)
-    second_item = StreetIndexItem('Second Item', None, None)
+    first_item  = StreetIndexItem('First Item', None, None, None)
+    second_item = StreetIndexItem('Second Item', None, None, None)
     category    = StreetIndexCategory('Hello world !', [first_item, second_item])
 
     category.draw(False, ctx, pc, layout, fascent, fheight,
