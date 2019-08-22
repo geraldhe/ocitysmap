@@ -291,11 +291,11 @@ class MultiPageStreetIndexRenderer:
             #LOG.debug("number of entries in first category: %d" % len(self.index_categories[city][0].items))
             sum_height = 0
             for category in self.index_categories[city]:
-                sum_height += category.label_drawing_height(header_layout) * 1.006756756756757
+                sum_height += category.label_drawing_height(header_layout)
                 #LOG.debug("adding height %f for category %s" % (category.label_drawing_height(header_layout), category.name))
                 for street in category.items:
                     #LOG.debug("label_drawing_height of %s: %f" % (street.label, street.label_drawing_height(label_layout)))
-                    sum_height += street.label_drawing_height(label_layout) * 1.031925675675676
+                    sum_height += street.label_drawing_height(label_layout)
 
                     w = street.label_drawing_width(label_layout)
                     if w > max_label_drawing_width:
@@ -306,7 +306,7 @@ class MultiPageStreetIndexRenderer:
                     if w > max_location_drawing_width:
                         max_location_drawing_width = w
                         #LOG.debug("new max_location_drawing_width: %f (%s)" % (max_location_drawing_width, street.location_str))
-            col_max_height = math.ceil(float(sum_height) / 4) + 50
+            col_max_height = math.ceil(float(sum_height) / 4) + 40
             LOG.debug("sum_height: %f, %f per column (4) => col_max_height: %d" % (sum_height, float(sum_height) / 4, col_max_height))
 
             # No street to render, bail out
