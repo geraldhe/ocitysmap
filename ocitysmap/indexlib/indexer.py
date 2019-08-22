@@ -122,7 +122,7 @@ class PoiIndex:
                         commons.PoiIndexItem(node['text'],
                                              ocitysmap.coords.Point(float(node['lat']),
                                                                     float(node['lon'])),
-                                             icon = node['icon']));
+                                             icon = node['icon']))
                 except:
                     pass
 
