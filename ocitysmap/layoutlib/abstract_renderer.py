@@ -76,8 +76,13 @@ class Renderer:
     # 12000 ensures that the zoom level will be 16 or higher
     # see entities.xml.inc file from osm style sheet
     DEFAULT_SCALE           = 70000
-    DEFAULT_MULTIPAGE_SCALE = 11000 # Ziel ~ 9500 ?
-    MAX_MULTIPAGE_MAPPAGES  = 5000
+    
+    # 11000 als Standard (Kartenmaterial Bezirk Perg)
+    # 5000 für Ausee (höherer Zoom)
+    # ==> kleinerer Wert bedeutet höhere Zoomstufe
+    DEFAULT_MULTIPAGE_SCALE = 11000
+    
+    MAX_MULTIPAGE_MAPPAGES  = 300
     
     DEBUG = False
 

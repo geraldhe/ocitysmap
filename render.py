@@ -32,6 +32,7 @@ import sys
 import ocitysmap
 import ocitysmap.layoutlib.renderers
 from coords import BoundingBox
+from ocitysmap.layoutlib.abstract_renderer import Renderer
 
 LOG = logging.getLogger('ocitysmap')
 
@@ -72,6 +73,15 @@ def main():
     parser.add_option('-r', '--remove-polys', dest='subpolys',
                       metavar='REMOVE_WKTPOLY',
                       help='remove polygon(s) (WktString).')
+    parser.add_option('--insert-pages-before-index', dest='insert_pages_before_index',
+                      metavar='INSERT_PAGES_BEFORE_INDEX',
+                      help='insert x pages before index.')
+    parser.add_option('--multipage-default-scale', dest='multipage_default_scale',
+                      metavar='MULTIPAGE_DEFAULT_SCALE',
+                      help='scaling.')
+    parser.add_option('--map-first-page-number', dest='map_first_page_number',
+                      metavar='MULTIPAGE_MAP_FIRST_PAGE',
+                      help='first page-map-number')
     parser.add_option('-L', '--language', dest='language',
                       metavar='LANGUAGE_CODE',
                       help='language to use when generating the index '
@@ -254,6 +264,16 @@ def main():
     rc.poi_file     = options.poi_file
     rc.gpx_file     = options.gpx_file
     rc.umap_file     = options.umap_file
+    
+    if not options.insert_pages_before_index is None:
+        rc.ins_pgs_bef_idx = int(options.insert_pages_before_index) or 0
+    
+    if not options.multipage_default_scale is None:
+        rc.multipg_def_scale = int(options.multipage_default_scale) or Renderer.DEFAULT_MULTIPAGE_SCALE
+
+    if not options.map_first_page_number is None and int(options.map_first_page_number) > 0:
+        rc.multipg_frst_map_page = int(options.map_first_page_number)
+
     if options.orientation == 'portrait':
         rc.paper_width_mm  = paper_descr[1]
         rc.paper_height_mm = paper_descr[2]

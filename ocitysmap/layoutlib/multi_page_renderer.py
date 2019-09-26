@@ -110,12 +110,15 @@ class MultiPageRenderer(Renderer):
         #                     self._usable_map_area_width_pt,
         #                     self._usable_map_area_height_pt) 
 
-        scale_denom = Renderer.DEFAULT_MULTIPAGE_SCALE
+        scale_denom = self.rc.multipg_def_scale
 
         # offset to the first map page number
         # there are currently three header pages
         # making the first actual map detail page number 4
         self._first_map_page_number = 4
+
+        if self.rc.multipg_frst_map_page > 0:
+            self._first_map_page_number = self.rc.multipg_frst_map_page
 
         # the mapnik scale depends on the latitude. However we are
         # always using Mapnik conversion functions (lat,lon <->
@@ -151,9 +154,9 @@ class MultiPageRenderer(Renderer):
                 nb_pages_width = 1
             else:
                 nb_pages_width = float(total_width_pt) / self._visible_map_area_width_pt
-#                nb_pages_width = \
-#                    (float(total_width_pt - self._visible_map_area_width_pt) / \
-#                         (self._visible_map_area_width_pt - overlap_margin_hor_pt)) + 1
+            #     nb_pages_width = \
+            #         (float(total_width_pt - self._visible_map_area_width_pt) / \
+            #              (self._visible_map_area_width_pt - overlap_margin_hor_pt)) + 1
 
             if total_height_pt < self._visible_map_area_height_pt:
                 nb_pages_height = 1
@@ -554,22 +557,22 @@ class MultiPageRenderer(Renderer):
 
     def _prepare_front_page_map(self, dpi):
         front_page_map_w = \
-            self._usable_map_area_width_pt - 2 * Renderer.LAYOUT_MARGIN_PT
+            self._usable_map_area_width_pt #- 2 * Renderer.PRINT_BLEED_PT
         front_page_map_h = \
-            (self._usable_map_area_height_pt - 2 * Renderer.LAYOUT_MARGIN_PT) / 2
+            self._usable_map_area_height_pt #- 2 * Renderer.PRINT_BLEED_PT
 
         # Create the nice small map
         front_page_map = \
             MapCanvas(self.rc.stylesheet,
-                      self.rc.bounding_box,
+                      self.rc.bounding_box.create_expanded2(0.03, 0.03, 0.03, 0.03),
                       front_page_map_w,
                       front_page_map_h,
                       dpi,
                       extend_bbox_to_ratio=True)
-
+        
         # Add the shape that greys out everything that is outside of
         # the administrative boundary.
-        exterior = shapely.wkt.loads(front_page_map.get_actual_bounding_box().as_wkt())
+        exterior = shapely.wkt.loads(front_page_map.get_actual_bounding_box().create_expanded2(0.2,0.2,0.2,0.2).as_wkt())
         interior = shapely.wkt.loads(self.rc.polygon_wkt)
         shade_wkt = exterior.difference(interior).wkt
         shade = maplib.shapes.PolyShapeFile(self.rc.bounding_box,
@@ -612,11 +615,11 @@ class MultiPageRenderer(Renderer):
     def _render_front_page_map(self, ctx, dpi, w, h):
         # We will render the map slightly below the title
         ctx.save()
-        ctx.translate(0, 0.3 * h + Renderer.LAYOUT_MARGIN_PT)
+        #ctx.translate(0, 0.3 * h + Renderer.LAYOUT_MARGIN_PT)
 
         # prevent map background from filling the full canvas
-        ctx.rectangle(0, 0, w, h / 2)
-        ctx.clip()
+        #ctx.rectangle(0, 0, w, h / 2)
+        #ctx.clip()
 
         # Render the map !
         mapnik.render(self._front_page_map.get_rendered_map(), ctx)
@@ -626,13 +629,13 @@ class MultiPageRenderer(Renderer):
             mapnik.render(rendered_map, ctx)
 
         # apply effect overlays
-        ctx.save()
+        #ctx.save()
         # we have to undo border adjustments here
-        ctx.translate(0, -(0.3 * h + Renderer.LAYOUT_MARGIN_PT))
-        self._map_canvas = self._front_page_map
-        for effect in self._frontpage_overlay_effects:
-            effect.render(self, ctx)
-        ctx.restore()
+        #ctx.translate(0, -(0.3 * h + Renderer.LAYOUT_MARGIN_PT))
+        #self._map_canvas = self._front_page_map
+        #for effect in self._frontpage_overlay_effects:
+        #    effect.render(self, ctx)
+        #ctx.restore()
 
         ctx.restore()
 
@@ -704,23 +707,23 @@ class MultiPageRenderer(Renderer):
 
     def _render_front_page(self, ctx, cairo_surface, dpi, osm_date):
         # set content-size (full page width - print-safe-margin)
-        content_width = self.paper_width_pt - 2*Renderer.PRINT_SAFE_MARGIN_PT
-        content_height = self.paper_height_pt - 2*Renderer.PRINT_SAFE_MARGIN_PT
+        content_width = self.paper_width_pt #- 2*Renderer.PRINT_SAFE_MARGIN_PT
+        content_height = self.paper_height_pt #- 2*Renderer.PRINT_SAFE_MARGIN_PT
         margin_x = 0
         margin_y = 0
     
         # Draw a nice grey rectangle covering the whole page
-        ctx.save()
-        ctx.set_source_rgb(.95,.95,.95)
-        ctx.rectangle(margin_x, margin_y, content_width, content_height)
-        ctx.fill()
-        ctx.restore()
+        #ctx.save()
+        #ctx.set_source_rgb(.95,.95,.95)
+        #ctx.rectangle(margin_x, margin_y, content_width, content_height)
+        #ctx.fill()
+        #ctx.restore()
 
         # reduce content-size by print bleed
-        content_width -= 2*Renderer.PRINT_BLEED_PT
-        content_height -= 2*Renderer.PRINT_BLEED_PT
-        margin_x += Renderer.PRINT_BLEED_PT
-        margin_y += Renderer.PRINT_BLEED_PT
+        #content_width -= 2*Renderer.PRINT_BLEED_PT
+        #content_height -= 2*Renderer.PRINT_BLEED_PT
+        #margin_x += Renderer.PRINT_BLEED_PT
+        #margin_y += Renderer.PRINT_BLEED_PT
         if Renderer.DEBUG: # show area excluding bleed-difference
             ctx.save()
             ctx.set_source_rgb(1,0.4,0.4)
@@ -729,18 +732,18 @@ class MultiPageRenderer(Renderer):
             ctx.restore()
 
         # reduce content-size by layout margin
-        content_width -= 2*Renderer.LAYOUT_MARGIN_PT
-        content_height -= 2*Renderer.LAYOUT_MARGIN_PT
+        #content_width -= 2*Renderer.LAYOUT_MARGIN_PT
+        #content_height -= 2*Renderer.LAYOUT_MARGIN_PT
 
         # Translate into the working area, taking 
         # LAYOUT_MARGIN_PT inside the grey area.
         ctx.save()
-        ctx.translate(
-            commons.convert_pt_to_dots(Renderer.PRINT_BLEED_PT + Renderer.LAYOUT_MARGIN_PT),
-            commons.convert_pt_to_dots(Renderer.PRINT_BLEED_PT + Renderer.LAYOUT_MARGIN_PT))
+        #ctx.translate(
+        #    commons.convert_pt_to_dots(Renderer.PRINT_BLEED_PT), # + Renderer.LAYOUT_MARGIN_PT),
+        #    commons.convert_pt_to_dots(Renderer.PRINT_BLEED_PT)) # + Renderer.LAYOUT_MARGIN_PT))
         self._render_front_page_map(ctx, dpi, content_width, content_height)
-        self._render_front_page_header(ctx, content_width, content_height)
-        self._render_front_page_footer(ctx, content_width, content_height, osm_date)
+        #self._render_front_page_header(ctx, content_width, content_height)
+        #self._render_front_page_footer(ctx, content_width, content_height, osm_date)
         ctx.restore()
 
         cairo_surface.set_page_label('Front page')
@@ -1044,13 +1047,13 @@ class MultiPageRenderer(Renderer):
         ctx = cairo.Context(cairo_surface)
 
         # translate all pages by PRINT_SAFE_MARGIN_PT
-        ctx.save()
+        ctx.save()        
         ctx.translate(
-                commons.convert_pt_to_dots(Renderer.PRINT_SAFE_MARGIN_PT),
-                commons.convert_pt_to_dots(Renderer.PRINT_SAFE_MARGIN_PT))
-
+            commons.convert_pt_to_dots(Renderer.PRINT_SAFE_MARGIN_PT),
+            commons.convert_pt_to_dots(Renderer.PRINT_SAFE_MARGIN_PT))
+        
         self._render_front_page(ctx, cairo_surface, dpi, osm_date)
-        self._render_blank_page(ctx, cairo_surface, dpi, 2)
+        #self._render_blank_page(ctx, cairo_surface, dpi, 2)
 
         ctx.save()
 
@@ -1149,7 +1152,7 @@ class MultiPageRenderer(Renderer):
                                              (self._usable_map_area_width_pt, self._usable_map_area_height_pt),
                                              (self.grayed_margin_inside_pt, self.grayed_margin_outside_pt, self.grayed_margin_top_bottom_pt),
                                              Renderer.PRINT_BLEED_PT,
-                                             len(self.pages) + 3)
+                                             len(self.pages) + 3 + self.rc.ins_pgs_bef_idx)
 
         mpsir.render()
 

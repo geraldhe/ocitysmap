@@ -99,6 +99,7 @@ from . import coords
 from . import i18n
 from .indexlib.indexer import StreetIndex
 from .indexlib.commons import IndexDoesNotFitError, IndexEmptyError
+from .layoutlib.abstract_renderer import Renderer
 from .layoutlib import renderers
 from .layoutlib import commons
 from .stylelib import Stylesheet
@@ -128,6 +129,10 @@ class RenderingConfiguration:
 
         self.stylesheet      = None # Obj Stylesheet
         self.overlays        = [] # Array of Obj Stylesheet
+
+        self.ins_pgs_bef_idx = 0 # skip x pages before index (to manually insert pages afterwards)
+        self.multipg_def_scale = Renderer.DEFAULT_MULTIPAGE_SCALE # multipage: default scale
+        self.multipg_frst_map_page = -1 # set page number x as first map page
 
         self.paper_width_mm  = None
         self.paper_height_mm = None
