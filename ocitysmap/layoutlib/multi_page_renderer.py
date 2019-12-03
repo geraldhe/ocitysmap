@@ -1057,7 +1057,7 @@ class MultiPageRenderer(Renderer):
 
         ctx.save()
 
-        self._render_overview_page(ctx, cairo_surface, dpi, 3)
+        self._render_overview_page(ctx, cairo_surface, dpi, 1)
 
         for map_number, (canvas, grid, overlay_canvases, overlay_effects) in enumerate(self.pages):
             if Renderer.DEBUG: # show area excluding bleed-difference
@@ -1152,7 +1152,7 @@ class MultiPageRenderer(Renderer):
                                              (self._usable_map_area_width_pt, self._usable_map_area_height_pt),
                                              (self.grayed_margin_inside_pt, self.grayed_margin_outside_pt, self.grayed_margin_top_bottom_pt),
                                              Renderer.PRINT_BLEED_PT,
-                                             len(self.pages) + 3 + self.rc.ins_pgs_bef_idx)
+                                             len(self.pages) + 1 + self.rc.ins_pgs_bef_idx)
 
         mpsir.render()
 
