@@ -165,21 +165,23 @@ class MultiPageRenderer(Renderer):
                     (float(total_height_pt - self._visible_map_area_height_pt) / \
                          (self._visible_map_area_height_pt - overlap_margin_vert_pt)) + 1
 
-            print("total size: ", total_width_pt, total_height_pt)
-            print("page size: ", self._visible_map_area_width_pt, self._visible_map_area_height_pt)
-            print("needed pages: ", nb_pages_width, nb_pages_height)
+            LOG.debug("total size: %dpt x %dpt" % (total_width_pt, total_height_pt))
+            LOG.debug("page size: %spt x %spt ", self._visible_map_area_width_pt, self._visible_map_area_height_pt)
+            LOG.debug("needed pages: %s x %s" % (nb_pages_width, nb_pages_height))
 
             # Round up the number of pages needed so that we have integer
             # number of pages
             self.nb_pages_width = int(math.ceil(nb_pages_width))
             self.nb_pages_height = int(math.ceil(nb_pages_height))
-            print("needed pages: ", self.nb_pages_width, self.nb_pages_height)
+            LOG.debug("needed pages (rounded): %s x %s" % (self.nb_pages_width, self.nb_pages_height))
 
             total_pages = self.nb_pages_width * self.nb_pages_height
 
             if Renderer.MAX_MULTIPAGE_MAPPAGES and \
                total_pages < Renderer.MAX_MULTIPAGE_MAPPAGES:
                 break
+
+            LOG.debug("--> too many pages (%s). Should be < %s. Lowering scale." % (total_pages, Renderer.MAX_MULTIPAGE_MAPPAGES))
 
             new_scale_denom = scale_denom * 1.41
 

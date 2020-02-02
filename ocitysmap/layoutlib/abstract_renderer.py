@@ -82,7 +82,7 @@ class Renderer:
     # ==> kleinerer Wert bedeutet höhere Zoomstufe
     DEFAULT_MULTIPAGE_SCALE = 11000
     
-    MAX_MULTIPAGE_MAPPAGES  = 300
+    MAX_MULTIPAGE_MAPPAGES  = 5000
     
     DEBUG = False
 

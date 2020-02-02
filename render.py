@@ -37,7 +37,7 @@ from ocitysmap.layoutlib.abstract_renderer import Renderer
 LOG = logging.getLogger('ocitysmap')
 
 def main():
-    logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+    logging.basicConfig(stream=sys.stdout, level=logging.DEBUG, format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s')
 
     # Known renderer names
     KNOWN_RENDERERS_NAMES = \
